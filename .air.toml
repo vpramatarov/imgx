@@ -1,0 +1,16 @@
+root = "."
+tmp_dir = "tmp"
+
+[build]
+  cmd = "go mod tidy && go build -tags heif -o ./tmp/imgx ./cmd/imgx"
+  bin = "./tmp/imgx"
+  full_bin = "./tmp/imgx --help"
+  include_ext = ["go", "yaml", "toml"]
+  exclude_dir = ["tmp", "output", "input", ".git"]
+  delay = 300
+
+[log]
+  time = false
+
+[misc]
+  clean_on_exit = true

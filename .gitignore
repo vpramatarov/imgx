@@ -1,0 +1,59 @@
+tmp/
+/imgx
+/imgx.exe
+/out/
+/output/
+/input/
+vendor/
+.idea/
+.vscode/
+./*.html
+*.log
+.env
+.env.*
+!.env.example
+/*.md
+!/README.md
+
+# --- Editors / IDEs ---
+# JetBrains (GoLand, IntelliJ, etc.)
+.idea/
+*.iml
+
+# VS Code
+.vscode/
+*.code-workspace
+
+# Vim / Neovim
+*.swp
+*.swo
+*~
+.netrwhist
+Session.vim
+
+# Emacs
+\#*\#
+.\#*
+
+# Sublime Text
+*.sublime-project
+*.sublime-workspace
+
+# Zed
+.zed/
+
+# --- OS junk ---
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# Linux
+.directory
+.Trash-*

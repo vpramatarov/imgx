@@ -1,0 +1,1146 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>imgx — User Guide</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  :root {
+    --bg: #fbfbfa;
+    --fg: #1f2328;
+    --muted: #57606a;
+    --accent: #0969da;
+    --rule: #d0d7de;
+    --code-bg: #f6f8fa;
+    --code-fg: #24292f;
+    --shell-bg: #1f2328;
+    --shell-fg: #e6edf3;
+    --shell-prompt: #7ee787;
+    --warn-bg: #fff8c5;
+    --warn-border: #d4a72c;
+    --info-bg: #ddf4ff;
+    --info-border: #54aeff;
+    --danger-bg: #ffebe9;
+    --danger-border: #ff8182;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; background: var(--bg); color: var(--fg); }
+  body {
+    font-family: -apple-system, "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+    font-size: 15px;
+    line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+  }
+  .layout {
+    display: grid;
+    grid-template-columns: 260px minmax(0, 1fr);
+    max-width: 1200px;
+    margin: 0 auto;
+  }
+  nav.toc {
+    position: sticky;
+    top: 0;
+    align-self: start;
+    height: 100vh;
+    overflow-y: auto;
+    padding: 32px 20px 32px 28px;
+    border-right: 1px solid var(--rule);
+    font-size: 13.5px;
+  }
+  nav.toc h2 {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--muted);
+    margin: 24px 0 6px;
+  }
+  nav.toc h2:first-child { margin-top: 0; }
+  nav.toc a {
+    display: block;
+    padding: 4px 0;
+    color: var(--fg);
+    text-decoration: none;
+    border-left: 2px solid transparent;
+    padding-left: 10px;
+    margin-left: -10px;
+  }
+  nav.toc a:hover { color: var(--accent); }
+  nav.toc a.sub { padding-left: 24px; font-size: 13px; color: var(--muted); }
+  main {
+    padding: 48px 56px;
+    max-width: 860px;
+  }
+  h1 { font-size: 34px; margin: 0 0 8px; letter-spacing: -0.01em; }
+  h1 + .subtitle { color: var(--muted); font-size: 16px; margin-bottom: 40px; }
+  h2 {
+    font-size: 24px;
+    margin: 48px 0 14px;
+    padding-bottom: 6px;
+    border-bottom: 1px solid var(--rule);
+    letter-spacing: -0.01em;
+    scroll-margin-top: 24px;
+  }
+  h3 { font-size: 18px; margin: 28px 0 10px; scroll-margin-top: 24px; }
+  h4 { font-size: 15.5px; margin: 20px 0 8px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; font-weight: 600; }
+  p, ul, ol, dl { margin: 0 0 14px; }
+  ul, ol { padding-left: 22px; }
+  li { margin-bottom: 4px; }
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  code {
+    font-family: "SF Mono", "Consolas", "Liberation Mono", monospace;
+    font-size: 13.5px;
+    background: var(--code-bg);
+    color: var(--code-fg);
+    padding: 1px 6px;
+    border-radius: 4px;
+    border: 1px solid var(--rule);
+  }
+  pre {
+    background: var(--code-bg);
+    color: var(--code-fg);
+    border: 1px solid var(--rule);
+    border-radius: 6px;
+    padding: 14px 16px;
+    overflow-x: auto;
+    font-size: 13px;
+    line-height: 1.5;
+  }
+  pre code { background: none; border: none; padding: 0; font-size: inherit; }
+  pre.shell {
+    background: var(--shell-bg);
+    color: var(--shell-fg);
+    border-color: var(--shell-bg);
+  }
+  pre.shell .prompt { color: var(--shell-prompt); user-select: none; }
+  pre.shell .comment { color: #8b949e; }
+  table {
+    border-collapse: collapse;
+    width: 100%;
+    margin: 12px 0 18px;
+    font-size: 14px;
+  }
+  th, td {
+    border: 1px solid var(--rule);
+    padding: 8px 12px;
+    text-align: left;
+    vertical-align: top;
+  }
+  th { background: var(--code-bg); font-weight: 600; }
+  tr:nth-child(even) td { background: #fafbfc; }
+  .callout {
+    border-left: 4px solid var(--info-border);
+    background: var(--info-bg);
+    padding: 12px 14px;
+    margin: 16px 0;
+    border-radius: 0 6px 6px 0;
+  }
+  .callout.warn { border-color: var(--warn-border); background: var(--warn-bg); }
+  .callout.danger { border-color: var(--danger-border); background: var(--danger-bg); }
+  .callout strong { display: block; margin-bottom: 4px; }
+  .pill {
+    display: inline-block;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    padding: 2px 8px;
+    border-radius: 999px;
+    background: var(--code-bg);
+    color: var(--muted);
+    border: 1px solid var(--rule);
+    font-weight: 600;
+  }
+  .pill.ok { color: #1a7f37; background: #dafbe1; border-color: #4ac26b; }
+  .pill.no { color: #cf222e; background: #ffebe9; border-color: #ff8182; }
+  .pill.warn { color: #9a6700; background: #fff8c5; border-color: #d4a72c; }
+  dl.flag-list dt {
+    font-family: "SF Mono", "Consolas", monospace;
+    font-size: 14px;
+    font-weight: 600;
+    margin-top: 14px;
+    color: var(--code-fg);
+  }
+  dl.flag-list dd { margin: 4px 0 0 0; color: var(--fg); }
+  dl.flag-list dd.meta { color: var(--muted); font-size: 13px; margin-bottom: 6px; }
+  .diagram {
+    background: var(--code-bg);
+    border: 1px solid var(--rule);
+    border-radius: 6px;
+    padding: 16px;
+    margin: 14px 0;
+    font-family: "SF Mono", "Consolas", monospace;
+    font-size: 13px;
+    line-height: 1.45;
+    white-space: pre;
+    overflow-x: auto;
+  }
+  hr { border: none; border-top: 1px solid var(--rule); margin: 32px 0; }
+  .small { font-size: 13px; color: var(--muted); }
+  @media (max-width: 900px) {
+    .layout { grid-template-columns: 1fr; }
+    nav.toc { display: none; }
+    main { padding: 28px 20px; }
+  }
+</style>
+</head>
+<body>
+<div class="layout">
+
+<nav class="toc" aria-label="Table of contents">
+  <h2>Getting Started</h2>
+  <a href="#overview">Overview</a>
+  <a href="#quick-start">Quick start</a>
+  <a href="#install">Installation</a>
+
+  <h2>Reference</h2>
+  <a href="#cli">CLI flags</a>
+  <a href="#config">Config file</a>
+  <a href="#precedence">Precedence rules</a>
+  <a href="#formats">Supported formats</a>
+
+  <h2>How It Works</h2>
+  <a href="#pipeline">Processing pipeline</a>
+  <a href="#naming">Output naming</a>
+  <a href="#translit">Transliteration</a>
+  <a href="#conflicts">Conflict resolution</a>
+  <a href="#concurrency">Concurrency model</a>
+  <a href="#errors">Error handling</a>
+
+  <h2>Running imgx</h2>
+  <a href="#run-prod">Production</a>
+  <a href="#run-dev">Development (hot reload)</a>
+  <a href="#run-local">From source (no Docker)</a>
+  <a href="#http-ui">HTTP UI (serve)</a>
+  <a href="#tests">Running tests</a>
+
+  <h2>Internals</h2>
+  <a href="#docker-stages">Docker architecture</a>
+  <a href="#structure">Project structure</a>
+
+  <h2>Appendix</h2>
+  <a href="#examples">Examples</a>
+  <a href="#troubleshooting">Troubleshooting</a>
+  <a href="#limitations">Known limitations</a>
+  <a href="#env">Environment variables</a>
+</nav>
+
+<main>
+
+<h1>imgx</h1>
+<p class="subtitle">Batch image processor: resize, rename, convert format, and strip EXIF — non-destructively.</p>
+
+<!-- ========================================================= OVERVIEW -->
+<h2 id="overview">Overview</h2>
+
+<p><strong>imgx</strong> is a command-line tool written in Go that takes a folder of images and produces a processed copy of each image in an output folder. The originals are never modified.</p>
+
+<p>A single invocation can do any subset of:</p>
+<ul>
+  <li><strong>Resize</strong> to a target width, height, or fit-within bounding box (aspect ratio preserved; never upscales in fit mode).</li>
+  <li><strong>Rename</strong> to a sanitized, ASCII base name followed by a sequential index.</li>
+  <li><strong>Convert format</strong> between JPEG, PNG, GIF, WebP, AVIF, and TIFF. HEIC and HEIF inputs are decoded and transcoded (decode-only).</li>
+  <li><strong>Strip EXIF</strong> metadata — location, camera make/model, timestamps, etc.</li>
+</ul>
+
+<p>imgx is designed to be invoked ad-hoc from a terminal, driven by a config file, or run as a Docker container against bind-mounted input and output directories.</p>
+
+<!-- ========================================================= QUICK START -->
+<h2 id="quick-start">Quick start</h2>
+
+<p>The fastest path, assuming Docker Desktop is running:</p>
+
+<h4>Option 1 &mdash; HTTP UI (default)</h4>
+<pre class="shell"><span class="comment"># 1. Build and start the server (first build takes ~2 min)</span>
+<span class="prompt">$</span> docker compose up --build
+
+<span class="comment"># 2. Open the upload form in your browser</span>
+<span class="prompt">$</span> open http://localhost:8080
+</pre>
+
+<p>Drop images into the form, pick resize / format / quality / sort, submit, and the browser downloads a ZIP containing the processed files.</p>
+
+<h4>Option 2 &mdash; CLI batch (opt-in profile)</h4>
+<pre class="shell"><span class="comment"># 1. Drop images into ./input</span>
+<span class="prompt">$</span> mkdir -p input output
+<span class="prompt">$</span> cp ~/my-photos/*.jpg ./input/
+
+<span class="comment"># 2. Run a one-shot batch through the imgx-cli service</span>
+<span class="prompt">$</span> docker compose --profile cli run --rm imgx-cli \
+    --out /data/output --width 1200 --format jpg /data/input
+
+<span class="comment"># 3. Look in ./output</span>
+<span class="prompt">$</span> ls output/
+input-1.jpg  input-2.jpg  input-3.jpg  ...
+</pre>
+
+<p>The <code>cli</code> profile is required so that <code>docker compose up</code> does not try to start a batch run alongside the server.</p>
+
+<div class="callout">
+  <strong>Configurable host port</strong>
+  The server binds to <code>8080</code> inside the container and maps to <code>${IMGX_PORT:-8080}</code> on the host. Copy <code>.env.example</code> to <code>.env</code> to change the host port or bind interface — see <a href="#env">Environment variables</a>.
+</div>
+
+<!-- ========================================================= INSTALL -->
+<h2 id="install">Installation</h2>
+
+<h3>Option A &mdash; Docker (recommended, no Go toolchain required)</h3>
+
+<p>Requires: Docker 20+ with Compose v2. Everything else (Go toolchain, dependencies) lives inside the container.</p>
+
+<pre class="shell"><span class="prompt">$</span> git clone https://github.com/&lt;your-org&gt;/imgx.git
+<span class="prompt">$</span> cd imgx
+<span class="prompt">$</span> docker compose build          <span class="comment"># ~2 min on first build</span>
+</pre>
+
+<h3>Option B &mdash; From source</h3>
+
+<p>Requires: Go 1.26+.</p>
+
+<pre class="shell"><span class="prompt">$</span> git clone https://github.com/&lt;your-org&gt;/imgx.git
+<span class="prompt">$</span> cd imgx
+<span class="prompt">$</span> go build -o imgx ./cmd/imgx
+<span class="prompt">$</span> ./imgx --help
+</pre>
+
+<div class="callout">
+  <strong>Note</strong>
+  <code>go.sum</code> is not committed to the repo. The first <code>go build</code> (or <code>go mod tidy</code>) will generate it locally; the Docker <code>deps</code> stage does the same inside the container.
+</div>
+
+<!-- ========================================================= CLI -->
+<h2 id="cli">CLI flags</h2>
+
+<p>All flags can be set either on the command line or in a config file (see <a href="#config">Config file</a>). CLI flags always override config-file values.</p>
+
+<p>Usage:</p>
+<pre>imgx [flags] &lt;input-dir&gt;</pre>
+
+<dl class="flag-list">
+  <dt>-o, --out &lt;dir&gt;</dt>
+  <dd class="meta">Required. Created if it does not exist.</dd>
+  <dd>Output directory. Processed files land here. Originals in <code>&lt;input-dir&gt;</code> are never touched.</dd>
+
+  <dt>-n, --name &lt;string&gt;</dt>
+  <dd class="meta">Default: base name of the input directory.</dd>
+  <dd>Base name for output files. Run through transliteration + sanitization before use. See <a href="#naming">Output naming</a>.</dd>
+
+  <dt>-w, --width &lt;int&gt;</dt>
+  <dd class="meta">Mutually exclusive with <code>--height</code> and <code>--fit</code>.</dd>
+  <dd>Target width in pixels. Height is computed from the source aspect ratio.</dd>
+
+  <dt>--height &lt;int&gt;</dt>
+  <dd class="meta">Mutually exclusive with <code>--width</code> and <code>--fit</code>.</dd>
+  <dd>Target height in pixels. Width is computed from the source aspect ratio.</dd>
+
+  <dt>--fit &lt;WxH&gt;</dt>
+  <dd class="meta">Mutually exclusive with <code>--width</code> and <code>--height</code>. Example: <code>--fit 1200x1200</code>.</dd>
+  <dd>Fit image inside a bounding box of W × H, preserving aspect ratio. Never upscales — if the source is already smaller than the box, the source dimensions are kept.</dd>
+
+  <dt>-f, --format &lt;name&gt;</dt>
+  <dd class="meta">Default: keep source format.</dd>
+  <dd>Output format. One of <code>jpg</code>, <code>png</code>, <code>webp</code>, <code>avif</code>, <code>gif</code>, <code>tiff</code>. <code>heic</code> is rejected (decode-only). AVIF requires the <code>heif</code> build tag (always set in the Docker image). See <a href="#formats">Supported formats</a> for caveats.</dd>
+
+  <dt>-q, --quality &lt;1-100&gt;</dt>
+  <dd class="meta">Default: 85.</dd>
+  <dd>Applies to JPEG and AVIF. Ignored for PNG/GIF/TIFF (lossless) and WebP (pure-Go encoder is lossless in this build).</dd>
+
+  <dt>--sort &lt;mode&gt;</dt>
+  <dd class="meta">Default: OS readdir order.</dd>
+  <dd>Determines the assignment order of the <code>{n}</code> index. One of:
+    <ul>
+      <li><code>alpha</code> — sort ascending by filename.</li>
+      <li><code>mtime</code> — sort ascending by modification time.</li>
+    </ul>
+  </dd>
+
+  <dt>-r, --recursive</dt>
+  <dd class="meta">Default: off.</dd>
+  <dd>Walk into subdirectories of <code>&lt;input-dir&gt;</code>. Otherwise only top-level files are processed.</dd>
+
+  <dt>-c, --config &lt;path&gt;</dt>
+  <dd class="meta">Default: auto-detect <code>./imgx.yaml</code> or <code>./configs/imgx.yaml</code>.</dd>
+  <dd>Explicit path to a YAML or TOML config file.</dd>
+
+  <dt>--dry-run</dt>
+  <dd class="meta">Default: off.</dd>
+  <dd>Print what would be written, including the target path and resulting byte count, without actually writing files.</dd>
+
+  <dt>-v, --verbose</dt>
+  <dd class="meta">Default: off.</dd>
+  <dd>Print one line per file processed.</dd>
+
+  <dt>--concurrency &lt;int&gt;</dt>
+  <dd class="meta">Default: number of CPU cores (<code>runtime.NumCPU()</code>).</dd>
+  <dd>Size of the worker pool. Higher values process faster on multi-core machines at the cost of more simultaneous memory for decoded images. See <a href="#concurrency">Concurrency model</a>.</dd>
+</dl>
+
+<!-- ========================================================= CONFIG -->
+<h2 id="config">Config file</h2>
+
+<p>imgx accepts YAML or TOML config files. The format is detected by file extension.</p>
+
+<h3>Discovery</h3>
+<ol>
+  <li>If <code>--config &lt;path&gt;</code> is passed, that file is loaded verbatim.</li>
+  <li>Otherwise imgx looks for <code>imgx.yaml</code> (or <code>imgx.toml</code>) in the current directory, then in <code>./configs/</code>.</li>
+  <li>If no config is found, only flags and environment variables are used.</li>
+</ol>
+
+<h3>YAML example</h3>
+<pre><code>input: ./photos
+out: ./out
+name: my-images
+width: 1200
+format: jpg
+quality: 85
+sort: alpha
+recursive: true
+concurrency: 4
+# fit: 1200x1200         # mutually exclusive with width/height
+# height: 800
+# dry-run: false
+# verbose: false
+</code></pre>
+
+<h3>TOML example</h3>
+<pre><code>input       = "./photos"
+out         = "./out"
+name        = "my-images"
+width       = 1200
+format      = "jpg"
+quality     = 85
+sort        = "alpha"
+recursive   = true
+concurrency = 4
+</code></pre>
+
+<p>Every key in the config file has the same name as its CLI flag (without the leading <code>--</code>). Dashes are preserved: use <code>dry-run: true</code>, not <code>dry_run</code>.</p>
+
+<h2 id="precedence">Precedence rules</h2>
+
+<p>When a value is set in more than one place, the later source wins:</p>
+<ol>
+  <li><strong>Config file</strong> — lowest precedence.</li>
+  <li><strong>Environment variables</strong> prefixed <code>IMGX_</code> (e.g. <code>IMGX_WIDTH=1600</code>).</li>
+  <li><strong>Command-line flags</strong> — highest precedence.</li>
+</ol>
+
+<p>The positional <code>&lt;input-dir&gt;</code> argument, if given, overrides the <code>input:</code> field in the config file.</p>
+
+<div class="callout">
+  <strong>Validation</strong>
+  imgx validates the merged config after all sources are applied. Errors (e.g. two resize modes set simultaneously, <code>--quality</code> outside 1–100) produce a non-zero exit code before any image is read.
+</div>
+
+<!-- ========================================================= FORMATS -->
+<h2 id="formats">Supported formats</h2>
+
+<table>
+  <thead><tr><th>Format</th><th>Read</th><th>Write</th><th>Notes</th></tr></thead>
+  <tbody>
+    <tr><td>JPEG</td><td><span class="pill ok">yes</span></td><td><span class="pill ok">yes</span></td><td>Quality controlled by <code>--quality</code>. JPEG has no alpha channel, so alpha-bearing sources (e.g. transparent PNG) are flattened onto a <strong>white</strong> background before encoding — matches Photoshop / browser defaults. Go's stdlib would otherwise composite against black, producing dark halos around transparent logos.</td></tr>
+    <tr><td>PNG</td><td><span class="pill ok">yes</span></td><td><span class="pill ok">yes</span></td><td>Lossless; <code>--quality</code> is ignored.</td></tr>
+    <tr><td>GIF</td><td><span class="pill ok">yes</span></td><td><span class="pill ok">yes</span></td><td>Only the first frame of animated GIFs is written.</td></tr>
+    <tr><td>WebP</td><td><span class="pill ok">yes</span></td><td><span class="pill warn">lossless</span></td><td>Pure-Go encoder is lossless; <code>--quality</code> is ignored.</td></tr>
+    <tr><td>TIFF</td><td><span class="pill ok">yes</span></td><td><span class="pill ok">yes</span></td><td>Written with Deflate compression.</td></tr>
+    <tr><td>BMP</td><td><span class="pill ok">yes</span></td><td><span class="pill no">no</span></td><td>Read-only — convert by passing <code>--format</code>.</td></tr>
+    <tr><td>AVIF</td><td><span class="pill ok">yes</span></td><td><span class="pill ok">yes</span></td><td>Via libheif + aom (AV1). Quality controlled by <code>--quality</code>. Requires the <code>heif</code> build tag.</td></tr>
+    <tr><td>HEIC / HEIF</td><td><span class="pill ok">yes</span></td><td><span class="pill no">no</span></td><td>Decode-only (brands: <code>heic</code>, <code>heix</code>, <code>mif1</code>, <code>msf1</code>). Convert to AVIF/JPEG/PNG/WebP via <code>--format</code>. Requires the <code>heif</code> build tag.</td></tr>
+  </tbody>
+</table>
+
+<p>Format is detected by <strong>magic bytes</strong>, not by file extension. A file named <code>photo.jpg</code> that is actually a PNG will be correctly identified as a PNG.</p>
+
+<div class="callout">
+  <strong>The <code>heif</code> build tag</strong>
+  HEIC and AVIF support is gated behind the <code>heif</code> build tag because it pulls in libheif (C library) via CGO. The Dockerfile always passes <code>-tags heif</code> so the published image has full HEIF/AVIF support. Local <code>go build</code>/<code>go test</code> without the tag still compiles — HEIC/AVIF inputs will fail with "image: unknown format" and <code>--format avif</code> returns a clear error. Pass <code>-tags heif</code> locally once you have <code>libheif-dev libaom-dev libde265-dev</code> installed.
+</div>
+
+<!-- ========================================================= PIPELINE -->
+<h2 id="pipeline">Processing pipeline</h2>
+
+<p>Each image that the scanner finds is processed through the following steps, in order, by a worker goroutine:</p>
+
+<pre class="diagram">Read ─▶ Decode ─▶ Resize ─▶ Convert ─▶ Strip EXIF ─▶ Encode ─▶ Write
+ │        │         │         │           │            │        │
+ │        │         │         │           │            │        └── atomic: write to .tmp, then rename
+ │        │         │         │           │            └────── target format (opts.quality for JPEG)
+ │        │         │         │           └─────── re-encode from image.Image drops all metadata
+ │        │         │         └──────── choose output format (--format) or keep source
+ │        │         └────── width / height / fit (skipped if no resize flag)
+ │        └────── registered decoders: JPEG, PNG, GIF, WebP, TIFF, BMP (+HEIC, AVIF with -tags heif)
+ └────── file opened in streaming mode; magic bytes already verified by scanner</pre>
+
+<h4>Why EXIF is stripped "for free"</h4>
+<p>imgx re-encodes every output by first decoding the source into a raw <code>image.Image</code> (pixel grid), then encoding those pixels with a fresh writer. EXIF lives outside the pixel grid — in JPEG APP1 segments, PNG text chunks, TIFF IFDs — and is simply never carried forward. There is no explicit "remove EXIF" step.</p>
+
+<h4>Alpha handling at encode time</h4>
+<p>PNG, WebP, AVIF, and TIFF outputs carry the source alpha channel through unchanged. GIF preserves single-colour transparency. <strong>JPEG has no alpha</strong>, so when the encoder sees an alpha-bearing source type (<code>*image.RGBA</code>, <code>*image.NRGBA</code>, or the 64-bit variants) imgx first draws it onto a white canvas (<code>draw.Over</code>) and hands <em>that</em> to the JPEG encoder. The result: a transparent PNG logo encoded to JPEG comes out on white, not Go's stdlib default of black. Opaque sources (YCbCr from an existing JPEG, <code>*image.Gray</code>) skip the flatten entirely.</p>
+
+<!-- ========================================================= NAMING -->
+<h2 id="naming">Output naming</h2>
+
+<p>Output files are named <code>&lt;base&gt;-&lt;n&gt;.&lt;ext&gt;</code> where:</p>
+
+<dl>
+  <dt><code>&lt;base&gt;</code></dt>
+  <dd>Derived from <code>--name</code> (or the input directory name if <code>--name</code> is not given), then <em>cleaned</em> through transliteration and sanitization.</dd>
+  <dt><code>&lt;n&gt;</code></dt>
+  <dd>A 1-based integer index assigned in sort order (see <code>--sort</code>). Index 1 goes to the first image in the sorted scan, 2 to the second, etc. The index is assigned <strong>before</strong> workers dispatch, so parallel execution does not change filenames.</dd>
+  <dt><code>&lt;ext&gt;</code></dt>
+  <dd>The canonical extension of the output format: <code>jpg</code>, <code>png</code>, <code>gif</code>, <code>webp</code>, <code>avif</code>, <code>tiff</code>.</dd>
+</dl>
+
+<h3 id="translit">Transliteration and sanitization</h3>
+
+<p>The raw base name is passed through two stages:</p>
+
+<h4>Stage 1 &mdash; Translit</h4>
+<ol>
+  <li>ASCII characters pass through unchanged.</li>
+  <li>Cyrillic characters are mapped using a hand-built <strong>BGN/PCGN</strong> table (the US/UK standard for romanizing Cyrillic place names — the same used on passports and atlases).</li>
+  <li>All other non-ASCII characters (Greek, accented Latin, CJK, Arabic, …) fall back to <a href="https://github.com/mozillazg/go-unidecode">go-unidecode</a>.</li>
+</ol>
+
+<p>Examples:</p>
+<table>
+  <thead><tr><th>Input</th><th>After Translit</th></tr></thead>
+  <tbody>
+    <tr><td>Пловдив</td><td>Plovdiv</td></tr>
+    <tr><td>Щука</td><td>Shchuka</td></tr>
+    <tr><td>Йошкар-Ола</td><td>Yoshkar-Ola</td></tr>
+    <tr><td>Жёлтый</td><td>Zhyoltyy</td></tr>
+    <tr><td>über</td><td>uber</td></tr>
+    <tr><td>αβγ</td><td>abg</td></tr>
+  </tbody>
+</table>
+
+<h4>Stage 2 &mdash; Sanitize</h4>
+<ol>
+  <li>Lowercase the whole string.</li>
+  <li>Any character not in <code>[a-z0-9.-]</code> is replaced with <code>-</code>.</li>
+  <li>Consecutive <code>-</code> are collapsed to a single <code>-</code>.</li>
+  <li>Leading and trailing <code>-</code> and <code>.</code> are trimmed.</li>
+  <li>Empty result falls back to the literal string <code>image</code>.</li>
+</ol>
+
+<p>Putting them together:</p>
+
+<pre><code>Clean("Пловдив фото")     → "plovdiv-foto"
+Clean("Йошкар-Ола 2024")  → "yoshkar-ola-2024"
+Clean("über cool")        → "uber-cool"
+</code></pre>
+
+<h3 id="conflicts">Conflict resolution</h3>
+
+<p>If the computed output path <code>&lt;base&gt;-&lt;n&gt;.&lt;ext&gt;</code> already exists on disk (or has been reserved by a previous worker in the same run), imgx appends a disambiguator:</p>
+
+<pre><code>photos-1.jpg                (normal case)
+photos-1-1.jpg              (if photos-1.jpg already exists)
+photos-1-2.jpg              (if photos-1.jpg AND photos-1-1.jpg exist)
+</code></pre>
+
+<p>Each successful <code>Resolve</code> call reserves the returned name so that no other worker can pick it — avoiding a race where two goroutines both <code>Stat</code> the same path, both see "not found", and both try to write to it.</p>
+
+<!-- ========================================================= CONCURRENCY -->
+<h2 id="concurrency">Concurrency model</h2>
+
+<p>imgx processes images <strong>in parallel using goroutines inside a single process</strong>. It does not fork or spawn child processes.</p>
+
+<pre class="diagram">                                  ┌── worker 1 ─┐
+main goroutine ── [job channel] ──┼── worker 2 ─┤── writes to output/
+                                  ├── worker 3 ─┤
+                                  └── worker N ─┘    (N = --concurrency)</pre>
+
+<ul>
+  <li>A <strong>fixed-size worker pool</strong> of <code>N = --concurrency</code> goroutines is spawned once. Default is <code>runtime.NumCPU()</code>.</li>
+  <li>Each worker pulls one job at a time from an unbuffered channel. A job is a single image plus its pre-assigned index.</li>
+  <li>The pool caps the amount of work in flight. On a 10,000-image folder you are not holding 10,000 decoded images in RAM at once — only N.</li>
+  <li>Output-index assignment happens <strong>before</strong> jobs enter the channel, so filenames are deterministic regardless of scheduling.</li>
+</ul>
+
+<div class="callout">
+  <strong>Tuning tip</strong>
+  The default (one worker per core) is a reasonable starting point, but decoding large JPEGs is memory-heavy. If you are processing multi-megapixel 24-bit images on a 16-core box, consider dropping <code>--concurrency</code> to half your core count to stay under available RAM.
+</div>
+
+<!-- ========================================================= ERRORS -->
+<h2 id="errors">Error handling</h2>
+
+<table>
+  <thead><tr><th>Condition</th><th>Behaviour</th></tr></thead>
+  <tbody>
+    <tr><td>Input directory does not exist</td><td>Fatal — exit code 1 with error message, no images processed.</td></tr>
+    <tr><td>Output directory does not exist</td><td>Created automatically (<code>mkdir -p</code>).</td></tr>
+    <tr><td>Invalid flag combination (e.g. <code>--width</code> + <code>--fit</code>)</td><td>Fatal — config validation fails before processing.</td></tr>
+    <tr><td>Individual file fails to decode</td><td>Logged as a warning, skipped, run continues.</td></tr>
+    <tr><td>Individual file fails to encode or write</td><td>Same — warning, skip, continue.</td></tr>
+    <tr><td>Unsupported file type in input dir (e.g. <code>.txt</code>)</td><td>Silently skipped by the magic-byte scanner.</td></tr>
+    <tr><td><code>--format heic</code> requested</td><td>Fatal — HEIC is decode-only. Use <code>--format avif</code> (or jpg/png/webp) for HEIF-family output.</td></tr>
+    <tr><td>HEIC/AVIF file encountered in a non-<code>heif</code> build</td><td>Decode fails with "image: unknown format"; logged and counted as a per-file error.</td></tr>
+  </tbody>
+</table>
+
+<p>At the end of a run, imgx prints a summary line:</p>
+
+<pre class="shell">Processed: 42  Errors: 1  Elapsed: 2.3s  Dry-run: false  (avg 54ms/image)</pre>
+
+<p>When any file failed, a consolidated <code>Failed</code> block is written to <strong>stderr</strong> before the summary line, listing each input base name and its reason — so you don't have to scroll through interleaved <code>warn:</code> lines:</p>
+
+<pre class="shell"><span class="comment"># stderr</span>
+Failed (2):
+  IMG_4825.HEIC: no encoder for source format heic; pass --format to convert
+  IMG_4826.HEIC: no encoder for source format heic; pass --format to convert
+
+<span class="comment"># stdout</span>
+Processed: 0  Errors: 2  Elapsed: 12ms  Dry-run: false</pre>
+
+<p>If any per-file error occurred, imgx exits with code <code>2</code> so the calling shell can branch on <code>$?</code>.</p>
+
+<!-- ========================================================= RUN PROD -->
+<h2 id="run-prod">Running in production</h2>
+
+<p>The production container is built on <code>gcr.io/distroless/cc-debian13:nonroot</code> — no shell, no package manager, runs as UID 65532. It carries the <code>imgx</code> binary plus the libheif runtime stack (<code>libheif</code>, <code>libde265</code>, <code>libaom</code>/<code>libdav1d</code>) and the libheif codec <strong>plugins</strong> (<code>libde265</code> for HEVC decode, <code>aomdec</code>/<code>aomenc</code> for AVIF) needed for HEIC decode and AVIF encode/decode. <code>libx265</code> is intentionally <em>not</em> shipped (GPL; only HEVC decode is needed for HEIC input). Final image is ~50–60 MB (up from ~7 MB when the build was CGO-free).</p>
+
+<p>The same image powers two compose services:</p>
+
+<table>
+  <thead><tr><th>Service</th><th>Profile</th><th>Default entrypoint</th><th>Starts with <code>docker compose up</code>?</th></tr></thead>
+  <tbody>
+    <tr><td><code>imgx</code></td><td>(default)</td><td><code>imgx serve --addr 0.0.0.0:8080</code></td><td><span class="pill ok">yes</span></td></tr>
+    <tr><td><code>imgx-cli</code></td><td><code>cli</code></td><td><code>imgx</code> (args provided per invocation)</td><td><span class="pill no">no</span> — opt-in via <code>--profile cli</code></td></tr>
+  </tbody>
+</table>
+
+<h3>Default invocation — HTTP server</h3>
+
+<pre class="shell"><span class="prompt">$</span> docker compose up --build
+<span class="comment"># imgx: listening on http://0.0.0.0:8080 (inside container)</span>
+<span class="comment"># reachable from the host at http://localhost:${IMGX_PORT:-8080}</span>
+</pre>
+
+<p>The Dockerfile's <code>prod</code> stage sets:</p>
+<pre><code>EXPOSE 8080
+ENTRYPOINT ["/imgx"]
+CMD ["serve", "--addr", "0.0.0.0:8080"]
+</code></pre>
+
+<p>and <code>docker-compose.yml</code> maps the port with env-driven interpolation:</p>
+<pre><code>ports:
+  - "${IMGX_BIND:-0.0.0.0}:${IMGX_PORT:-8080}:8080"
+</code></pre>
+
+<p>Copy <code>.env.example</code> to <code>.env</code> to change the host-side port or bind interface without editing the compose file — see <a href="#env">Environment variables</a>.</p>
+
+<h3>One-shot CLI batch runs</h3>
+
+<p>The <code>imgx-cli</code> service sits behind the <code>cli</code> profile so it never starts implicitly, but stays available for batch processing:</p>
+
+<pre class="shell"><span class="prompt">$</span> docker compose --profile cli run --rm imgx-cli \
+    --out /data/output \
+    --fit 800x800 \
+    --format webp \
+    --recursive \
+    /data/input
+</pre>
+
+<p>Because <code>ENTRYPOINT</code> is still <code>/imgx</code>, any flags you pass are appended to the binary. The default <code>CMD</code> (<code>serve …</code>) is overridden by the compose service's empty <code>command: []</code>, so CLI args land exactly where you'd expect.</p>
+
+<h3>Volume mounts</h3>
+
+<p>Only the <code>imgx-cli</code> service mounts bind paths; the server is stateless by design and receives uploads in-memory/temp only.</p>
+
+<table>
+  <thead><tr><th>Service</th><th>Host path</th><th>Container path</th><th>Mode</th></tr></thead>
+  <tbody>
+    <tr><td><code>imgx</code></td><td colspan="3"><em>none — stateless HTTP service</em></td></tr>
+    <tr><td><code>imgx-cli</code></td><td><code>./input</code></td><td><code>/data/input</code></td><td>read-only</td></tr>
+    <tr><td><code>imgx-cli</code></td><td><code>./output</code></td><td><code>/data/output</code></td><td>read-write</td></tr>
+  </tbody>
+</table>
+
+<p>The <code>./input</code> bind mount is read-only as a safety measure — imgx never writes to its input, and the kernel enforces it.</p>
+
+<!-- ========================================================= RUN DEV -->
+<h2 id="run-dev">Running in development (hot reload)</h2>
+
+<p>The <code>dev</code> container runs <a href="https://github.com/air-verse/air">Air</a>, which watches the source tree inside the container and rebuilds + reruns imgx whenever a <code>.go</code>, <code>.yaml</code>, or <code>.toml</code> file changes.</p>
+
+<pre class="shell"><span class="prompt">$</span> docker compose -f docker-compose.dev.yml up --build
+</pre>
+
+<p>The dev compose file bind-mounts the entire repo into <code>/app</code>:</p>
+
+<pre><code>volumes:
+  - .:/app                      # live source tree (watched by Air)
+  - ./input:/data/input:ro
+  - ./output:/data/output
+</code></pre>
+
+<p>Air configuration lives in <code>.air.toml</code> at the repo root:</p>
+
+<pre><code>[build]
+  cmd         = "go mod tidy &amp;&amp; go build -tags heif -o ./tmp/imgx ./cmd/imgx"
+  bin         = "./tmp/imgx"
+  full_bin    = "./tmp/imgx --help"
+  include_ext = ["go", "yaml", "toml"]
+  exclude_dir = ["tmp", "output", "input", ".git"]
+  delay       = 300
+</code></pre>
+
+<p>The <code>-tags heif</code> flag matches the production build and requires libheif to be installed inside the dev container (it is — the <code>dev</code> Dockerfile stage apt-installs <code>libheif-dev libaom-dev libde265-dev</code>).</p>
+
+<p><code>full_bin</code> uses <code>--help</code> so that Air-triggered rebuilds do not re-process your <code>./input</code> folder every time you save a file. When you want to actually run the tool, override the command:</p>
+
+<pre class="shell"><span class="prompt">$</span> docker compose -f docker-compose.dev.yml run --rm imgx \
+    go run ./cmd/imgx --out /data/output --width 800 /data/input
+</pre>
+
+<p>Inside docker container:</p>
+<pre class="shell"><span class="prompt">$</span> go run ./cmd/imgx --out ./output -r --fit 2048x2048 --format jpg --verbose ./input</pre>
+
+<!-- ========================================================= RUN LOCAL -->
+<h2 id="run-local">From source (no Docker)</h2>
+
+<p>If you have a Go 1.26+ toolchain installed:</p>
+
+<pre class="shell"><span class="prompt">$</span> go build -o imgx ./cmd/imgx
+
+<span class="prompt">$</span> ./imgx \
+      --out ./out \
+      --width 1200 \
+      --format jpg \
+      --quality 85 \
+      ./photos
+
+Processed: 42  Errors: 0  Elapsed: 2.3s  Dry-run: false  (avg 54ms/image)
+</pre>
+
+<p>Without the <code>heif</code> build tag (default), the binary has no CGO dependencies and HEIC/AVIF are disabled. To get HEIF/AVIF locally, install <code>libheif-dev libaom-dev libde265-dev</code> and build with <code>-tags heif</code>:</p>
+
+<pre class="shell"><span class="prompt">$</span> go build -tags heif -o imgx ./cmd/imgx
+</pre>
+
+<!-- ========================================================= HTTP UI -->
+<h2 id="http-ui">HTTP UI (<code>imgx serve</code>)</h2>
+
+<p>imgx ships an optional HTTP server, exposed as a subcommand of the same binary. It serves a minimal upload form at <code>/</code>, runs uploads through the same pipeline the CLI uses, and streams the processed batch back as a ZIP download.</p>
+
+<pre class="shell"><span class="prompt">$</span> imgx serve
+imgx: listening on http://127.0.0.1:8080
+</pre>
+
+<p>Open the printed URL in a browser, pick one or more images, select resize / format / quality / sort options, and submit. The browser downloads a ZIP containing processed files named <code>&lt;base&gt;-&lt;n&gt;.&lt;ext&gt;</code> — same naming convention as the CLI.</p>
+
+<h3>Flags</h3>
+
+<dl class="flag-list">
+  <dt>--addr &lt;host:port&gt;</dt>
+  <dd class="meta">Default: <code>127.0.0.1:8080</code>.</dd>
+  <dd>Listen address. Loopback-only by default because there is no authentication. To expose on all interfaces (e.g. inside a container), pass <code>--addr 0.0.0.0:8080</code>.</dd>
+
+  <dt>--max-file-size &lt;bytes&gt;</dt>
+  <dd class="meta">Default: <code>52428800</code> (50 MiB).</dd>
+  <dd>Maximum size per uploaded file. Exceeding this returns HTTP 413.</dd>
+
+  <dt>--max-files &lt;int&gt;</dt>
+  <dd class="meta">Default: <code>100</code>.</dd>
+  <dd>Maximum number of files per request. Exceeding this returns HTTP 413.</dd>
+
+  <dt>--shutdown-timeout &lt;duration&gt;</dt>
+  <dd class="meta">Default: <code>30s</code>.</dd>
+  <dd>How long to wait for in-flight requests on <code>SIGINT</code> / <code>SIGTERM</code>. New connections are refused immediately; existing requests get this long to finish before being cancelled.</dd>
+</dl>
+
+<h3>Routes</h3>
+
+<table>
+  <thead><tr><th>Method + Path</th><th>Purpose</th></tr></thead>
+  <tbody>
+    <tr><td><code>GET /</code></td><td>Renders the single-page upload form.</td></tr>
+    <tr><td><code>POST /process</code></td><td>Multipart upload handler. Response: <code>Content-Type: application/zip</code> with a timestamped <code>filename</code> in <code>Content-Disposition</code>.</td></tr>
+    <tr><td><code>GET /healthz</code></td><td>Returns 200 "ok". For container health checks.</td></tr>
+  </tbody>
+</table>
+
+<h3>How uploads are handled</h3>
+
+<ol>
+  <li>The request body is capped at <code>--max-file-size &times; --max-files</code> via <code>http.MaxBytesReader</code>.</li>
+  <li>After <code>ParseMultipartForm</code>, per-file size and total file count are re-checked.</li>
+  <li>Each upload's filename is sanitised (<code>filepath.Base</code> + <code>naming.Clean</code>) and the body is written into a fresh <code>os.MkdirTemp</code> input directory.</li>
+  <li>A <code>config.Config</code> is built from the form fields and passed through the same <code>config.Validate</code> the CLI uses.</li>
+  <li><strong>Preflight.</strong> When the user picks <em>Keep original</em> (empty <code>format</code>), the scanned entries are checked against <code>format.CanEncode</code>. Any read-only format (HEIC, BMP) short-circuits the request with HTTP 400 and a message naming the offending files and the writable formats — catching the "silent drop" trap where all files would otherwise fail the same way at encode time.</li>
+  <li><code>scanner.Scan</code> (magic-byte detection) and <code>pipeline.Run</code> process the temp directory into a temp output directory — same worker pool, same deterministic indexing.</li>
+  <li>On <strong>partial failure</strong> (some files succeeded, some didn't) an <code>errors.txt</code> manifest is written into the output dir listing each failed file and its reason, so the user sees dropped inputs without having to read server logs.</li>
+  <li>The output directory is walked and its files streamed into an <code>archive/zip</code> response (<code>Store</code>, no compression — images are already compressed).</li>
+  <li>Both temp directories are removed via <code>defer</code> before the handler returns.</li>
+</ol>
+
+<div class="callout">
+  <strong>Client-side guard</strong>
+  The upload form's JS watches for HEIC/HEIF/BMP filenames. When one is present and <em>Keep original</em> is selected, the dropdown auto-switches to JPEG and an inline note ("<code>N file(s) are HEIC/BMP (decode-only) — output set to JPEG.</code>") appears under the format selector, so the server-side 400 should only ever fire on non-browser clients.
+</div>
+
+<div class="callout">
+  <strong>Stateless by design</strong>
+  Nothing is persisted between requests. Uploads live only in per-request temp directories and are deleted once the ZIP has been streamed.
+</div>
+
+<h3>Graceful shutdown</h3>
+
+<p>The <code>serve</code> command attaches <code>signal.NotifyContext</code> to <code>SIGINT</code> and <code>SIGTERM</code>. On either signal the server stops accepting new connections and calls <code>http.Server.Shutdown</code> with <code>--shutdown-timeout</code>. The request <code>context.Context</code> is threaded into <code>pipeline.Run</code>, so workers observe cancellation past the grace window and exit without leaving partial files behind.</p>
+
+<h3>Concurrency</h3>
+
+<p>Each HTTP request is handled in its own goroutine by <code>net/http</code>, and within a single request <code>pipeline.Run</code> spins up <code>runtime.NumCPU()</code> workers as it does for the CLI. On a busy server, two simultaneous uploads therefore each try to use all cores. If that becomes a problem in your deployment, either scale horizontally or front the server with a reverse proxy that bounds concurrency.</p>
+
+<h3>Running under Docker</h3>
+
+<p>The HTTP UI is the <strong>default</strong> under Docker. The prod image's <code>CMD</code> is <code>serve --addr 0.0.0.0:8080</code>, and <code>docker-compose.yml</code>'s <code>imgx</code> service publishes the port — so a single command is enough:</p>
+
+<pre class="shell"><span class="prompt">$</span> docker compose up --build
+</pre>
+
+<p>Change the host-side port or bind interface via <code>.env</code> (no compose-file edit required):</p>
+
+<pre class="shell"><span class="prompt">$</span> cp .env.example .env
+<span class="prompt">$</span> <span class="comment"># edit .env → IMGX_PORT=9000, IMGX_BIND=127.0.0.1</span>
+<span class="prompt">$</span> docker compose up
+<span class="comment"># now reachable at http://127.0.0.1:9000</span>
+</pre>
+
+<div class="callout warn">
+  <strong>No authentication</strong>
+  The HTTP surface has no auth. On shared machines set <code>IMGX_BIND=127.0.0.1</code> in <code>.env</code> to restrict to loopback, or front the container with a reverse proxy that enforces access control before exposing it on a network.
+</div>
+
+<!-- ========================================================= TESTS -->
+<h2 id="tests">Running tests</h2>
+
+<h3>With Docker (uses the builder stage — includes libheif)</h3>
+
+<pre class="shell"><span class="prompt">$</span> docker build --target builder -t imgx:build .
+<span class="prompt">$</span> docker run --rm imgx:build go test -tags heif ./...
+</pre>
+
+<h3>From source</h3>
+
+<p>Default: no CGO, HEIF/AVIF tests skipped.</p>
+
+<pre class="shell"><span class="prompt">$</span> go test ./...
+ok   github.com/vpramatarov/imgx/internal/format     0.014s
+ok   github.com/vpramatarov/imgx/internal/naming     0.018s
+ok   github.com/vpramatarov/imgx/internal/processor  0.120s
+ok   github.com/vpramatarov/imgx/internal/scanner    0.032s
+ok   github.com/vpramatarov/imgx/internal/server     0.090s
+</pre>
+
+<p>With HEIF/AVIF (requires <code>libheif-dev libaom-dev libde265-dev</code>):</p>
+
+<pre class="shell"><span class="prompt">$</span> go test -tags heif ./...
+</pre>
+
+<h3>Verbose</h3>
+
+<pre class="shell"><span class="prompt">$</span> go test -v -run TestTranslit ./internal/naming/
+</pre>
+
+<h3>What is covered</h3>
+
+<table>
+  <thead><tr><th>Package</th><th>Tests</th></tr></thead>
+  <tbody>
+    <tr><td><code>internal/format</code></td><td>Magic-byte detection for every supported signature; format parsing; read/write capability flags.</td></tr>
+    <tr><td><code>internal/naming</code></td><td>BGN/PCGN Cyrillic translit; go-unidecode fallback; sanitize edge cases; conflict resolution; concurrent reservation safety.</td></tr>
+    <tr><td><code>internal/scanner</code></td><td>Sort modes (default, alpha, mtime); recursive vs non-recursive walk; non-image file skipping.</td></tr>
+    <tr><td><code>internal/processor</code></td><td>Resize dimensions for width / height / fit modes; fit-no-upscale invariant; round-trip encode for JPEG/PNG/GIF/TIFF/WebP with magic-byte verification; HEIC encode rejection. Under <code>-tags heif</code>: AVIF round-trip.</td></tr>
+    <tr><td><code>internal/server</code></td><td>Index form served; healthz; happy-path multipart upload (PNG → JPEG ZIP); size/count limits (413); non-image rejection (400); missing-width validation; "Keep original" preflight rejection for read-only formats (BMP stands in for HEIC, no heif tag needed); partial-failure <code>errors.txt</code> manifest in the returned ZIP.</td></tr>
+  </tbody>
+</table>
+
+<!-- ========================================================= DOCKER STAGES -->
+<h2 id="docker-stages">Docker architecture</h2>
+
+<p>The Dockerfile has <strong>five stages</strong> plus an Air helper stage, so the same <code>Dockerfile</code> produces either a dev container with hot reload or a lean production container depending on <code>--target</code>.</p>
+
+<pre class="diagram">┌─────────────────────────────┐
+│  Stage 1: deps              │  golang:1.26-trixie + libheif-dev
+│  go mod download all        │  ← cached layer; invalidated when go.mod changes
+└────────────┬────────────────┘
+             │
+┌────────────▼────────────────┐
+│  Stage 2: dev               │  golang:1.26-trixie + libheif-dev + Air
+│  hot reload (CGO=1)         │  ← used by docker-compose.dev.yml
+└────────────┬────────────────┘
+             │
+┌────────────▼────────────────┐
+│  Stage 3: builder           │  golang:1.26-trixie + libheif-dev
+│  CGO=1 build -tags heif     │  ← produces /out/imgx
+└────────────┬────────────────┘
+             │
+┌────────────▼────────────────┐
+│  Stage 4: runtime-libs      │  debian:trixie-slim
+│  libheif1 + 3 plugins       │  ← stages .so closure AND /usr/lib/.../libheif/plugins/
+└────────────┬────────────────┘
+             │
+┌────────────▼────────────────┐
+│  Stage 5: prod              │  gcr.io/distroless/cc-debian13:nonroot
+│  binary + libheif + plugins │  ← used by docker-compose.yml
+└─────────────────────────────┘</pre>
+
+<table>
+  <thead><tr><th>Stage</th><th>Base</th><th>Purpose</th></tr></thead>
+  <tbody>
+    <tr><td><code>deps</code></td><td><code>golang:1.26-trixie</code> + libheif-dev</td><td>Downloads Go modules once; cached until <code>go.mod</code> changes.</td></tr>
+    <tr><td><code>dev</code></td><td><code>golang:1.26-trixie</code> + libheif-dev + Air</td><td>Runs Air with <code>CGO_ENABLED=1</code>; the <code>.air.toml</code> build cmd passes <code>-tags heif</code>.</td></tr>
+    <tr><td><code>builder</code></td><td><code>golang:1.26-trixie</code> + libheif-dev</td><td>CGO build with <code>-tags heif -trimpath -ldflags="-s -w"</code>.</td></tr>
+    <tr><td><code>runtime-libs</code></td><td><code>debian:trixie-slim</code></td><td>Installs <code>libheif1</code>, <code>libheif-plugin-libde265</code> (HEVC decode), <code>libheif-plugin-aomdec</code>, <code>libheif-plugin-aomenc</code> (AVIF), then stages both <code>libheif.so</code> + the plugin tree and walks <code>ldd</code> over every plugin to pick up their transitive <code>.so</code> closure (libde265, libaom, libdav1d, libwebp, …). <code>libheif-plugin-x265</code> is deliberately omitted — GPL, and only HEVC <em>decode</em> is needed for HEIC input.</td></tr>
+    <tr><td><code>prod</code></td><td><code>gcr.io/distroless/cc-debian13:nonroot</code></td><td>~50–60 MB runtime image. Has glibc + libstdc++ + libgcc, plus <code>libheif</code>, its codec plugins, and the transitive <code>.so</code> closure. Runs as UID 65532.</td></tr>
+  </tbody>
+</table>
+
+<div class="callout warn">
+  <strong>Plugin architecture gotcha</strong>
+  libheif &ge; 1.17 <code>dlopen</code>s codec plugins from <code>/usr/lib/x86_64-linux-gnu/libheif/plugins/</code> at runtime. Those plugins are not linked against <code>libheif.so.1</code>, so <code>ldd libheif.so.1</code> alone does <strong>not</strong> list them — if you only stage libheif's direct closure, decoding any HEIC raises <em>"No decoding plugin installed for this compression format"</em>. The Dockerfile installs the plugin packages explicitly and runs <code>ldd</code> against each plugin file to pull in their own deps. Keep those two steps in sync whenever the plugin set changes.
+</div>
+
+<p>To build only a specific stage (useful for CI):</p>
+<pre class="shell"><span class="prompt">$</span> docker build --target builder -t imgx:build .
+<span class="prompt">$</span> docker build --target prod    -t imgx:prod  .
+</pre>
+
+<!-- ========================================================= STRUCTURE -->
+<h2 id="structure">Project structure</h2>
+
+<pre class="diagram">imgx/
+├── cmd/imgx/
+│   ├── main.go                      # CLI entrypoint (cobra root command)
+│   └── serve.go                     # `serve` subcommand wiring
+├── internal/
+│   ├── config/config.go             # CLI + YAML/TOML merge (viper)
+│   ├── pipeline/pipeline.go         # Worker pool orchestration
+│   ├── processor/
+│   │   ├── resize.go                # width / height / fit
+│   │   ├── convert.go               # Encode dispatcher (CGO-free)
+│   │   ├── convert_heif.go          # //go:build heif — libheif decoders + AVIF encoder
+│   │   ├── convert_noheif.go        # //go:build !heif — encodeAVIF stub
+│   │   └── exif.go                  # HasEXIF helper (for tests)
+│   ├── naming/naming.go             # BGN/PCGN translit, sanitize, resolver
+│   ├── scanner/scanner.go           # directory walk + sort
+│   ├── format/format.go             # magic-byte detection + format registry
+│   └── server/                      # HTTP server (imgx serve)
+│       ├── server.go                # http.Server + graceful shutdown
+│       ├── router.go                # chi routes + middleware
+│       ├── handler.go               # index / process / health handlers
+│       ├── form.go                  # multipart form → config.Config
+│       ├── zipresp.go               # streamed ZIP response
+│       ├── embed.go                 # //go:embed template
+│       └── templates/index.html     # upload form
+├── configs/example.yaml             # sample config file
+├── docs/guide.html                  # this document
+├── Dockerfile                       # 5-stage multi-stage build (CGO + libheif)
+├── docker-compose.yml               # prod: `imgx` (serve, default) + `imgx-cli` (batch, profile)
+├── docker-compose.dev.yml           # development: Air, live source mount
+├── .env.example                     # IMGX_PORT / IMGX_BIND for compose port mapping
+├── .air.toml                        # hot reload config
+├── .dockerignore
+├── .gitignore
+├── go.mod
+└── README.md</pre>
+
+<p>Each <code>internal/*</code> package has a narrow responsibility and is independently testable. The dependency graph is a DAG:</p>
+
+<pre class="diagram">cmd/imgx ──────┬──► config ──────► (viper, cobra)
+               │
+               └──► server ──────► (chi, chi/middleware)
+                      │
+                      ▼
+                   pipeline ─────► scanner ─────► format
+                      │               │             ▲
+                      │               └─────────────┘
+                      ▼
+                   processor ──────► (imaging, nativewebp, x/image/tiff)
+                      │               (+ libheif-go under -tags heif)
+                      ▼
+                   naming ─────────► (go-unidecode)</pre>
+
+<!-- ========================================================= EXAMPLES -->
+<h2 id="examples">Examples</h2>
+
+<h3>Shrink a camera dump for the web</h3>
+<pre class="shell"><span class="prompt">$</span> imgx --out ./web --width 1600 --format jpg --quality 80 ./dcim
+</pre>
+
+<h3>Produce thumbnails, recursive</h3>
+<pre class="shell"><span class="prompt">$</span> imgx --out ./thumbs --fit 300x300 --format jpg --recursive ./gallery
+</pre>
+
+<h3>Strip EXIF only (no resize, keep format)</h3>
+<pre class="shell"><span class="prompt">$</span> imgx --out ./clean ./sensitive-photos
+</pre>
+
+<h3>Convert PNGs to WebP, preserve dimensions</h3>
+<pre class="shell"><span class="prompt">$</span> imgx --out ./webp --format webp ./screenshots
+</pre>
+
+<h3>Convert iPhone HEIC dump to AVIF</h3>
+<pre class="shell"><span class="prompt">$</span> imgx --out ./avif --format avif --quality 70 ./iphone-photos
+<span class="comment"># Inputs: IMG_0001.HEIC, IMG_0002.HEIC, …  → ./avif/iphone-photos-1.avif, …</span>
+</pre>
+
+<h3>Convert HEIC to JPEG for wider compatibility</h3>
+<pre class="shell"><span class="prompt">$</span> imgx --out ./jpg --format jpg --quality 85 ./iphone-photos
+</pre>
+
+<h3>Dry run a batch and inspect the plan</h3>
+<pre class="shell"><span class="prompt">$</span> imgx --out ./out --width 800 --format jpg --dry-run --verbose ./photos
+
+[dry-run] ./photos/IMG_0001.jpg -> ./out/photos-1.jpg (142034 bytes)
+[dry-run] ./photos/IMG_0002.jpg -> ./out/photos-2.jpg (138441 bytes)
+...
+Processed: 42  Errors: 0  Elapsed: 180ms  Dry-run: true  (avg 4ms/image)
+</pre>
+
+<h3>Use a config file</h3>
+
+<pre><code># imgx.yaml
+out: ./out
+width: 1200
+format: jpg
+quality: 90
+sort: alpha
+recursive: true
+</code></pre>
+
+<pre class="shell"><span class="prompt">$</span> imgx -c ./imgx.yaml ./photos
+</pre>
+
+<h3>Override one config value via CLI</h3>
+<pre class="shell"><span class="prompt">$</span> imgx -c ./imgx.yaml --quality 70 ./photos
+</pre>
+
+<h3>Cyrillic base name with transliteration</h3>
+<pre class="shell"><span class="prompt">$</span> imgx --out ./out --name "Пловдив фото" ./photos
+<span class="comment"># → ./out/plovdiv-foto-1.jpg, ./out/plovdiv-foto-2.jpg, ...</span>
+</pre>
+
+<!-- ========================================================= TROUBLESHOOTING -->
+<h2 id="troubleshooting">Troubleshooting</h2>
+
+<h4>"error during connect … docker daemon is not running"</h4>
+<p>Docker Desktop (or <code>dockerd</code> on Linux) is stopped. Start it and retry.</p>
+
+<h4>"unknown revision vX.Y.Z" on first <code>go mod download</code></h4>
+<p>One of the dependencies in <code>go.mod</code> is pinned to a version that does not exist. Inside the container (or locally with Go installed), run:</p>
+<pre class="shell"><span class="prompt">$</span> go mod tidy
+</pre>
+<p>This will pin each dependency to its latest compatible version and regenerate <code>go.sum</code>. Commit both files after.</p>
+
+<h4>"input %q is not a directory"</h4>
+<p>imgx only accepts a directory as its input, not a single file. If you want to process one file, put it in a dedicated directory first:</p>
+<pre class="shell"><span class="prompt">$</span> mkdir -p one &amp;&amp; cp photo.jpg one/ &amp;&amp; imgx --out ./out ./one
+</pre>
+
+<h4>"no encoder for source format bmp"</h4>
+<p>BMP is read-only. Pass <code>--format</code> to convert to a writable format, e.g. <code>--format jpg</code>.</p>
+
+<h4>Output dimensions are wrong after <code>--fit</code></h4>
+<p><code>--fit</code> preserves aspect ratio: the output fits <em>inside</em> the bounding box on both axes, so the smaller dimension is often well under the box size. That is by design.</p>
+
+<h4>Processing is slower than expected</h4>
+<p>Check <code>--concurrency</code> (default is <code>NumCPU</code>). If you are inside a Docker container with CPU limits, the reported NumCPU may be higher than what the cgroup actually allocates; pass <code>--concurrency N</code> explicitly.</p>
+
+<h4>"image: unknown format" on a valid-looking image</h4>
+<p>If the file is HEIC or AVIF, your binary was probably built without the <code>heif</code> build tag (the Docker image always has it; local <code>go build</code> without <code>-tags heif</code> omits it). Rebuild with <code>-tags heif</code> after installing <code>libheif-dev libaom-dev libde265-dev</code>, or run inside the Docker image. For any other valid image that fails, check magic bytes against <a href="#formats">Supported formats</a>.</p>
+
+<!-- ========================================================= LIMITATIONS -->
+<h2 id="limitations">Known limitations</h2>
+
+<div class="callout warn">
+  <strong>HEIC is decode-only.</strong>
+  imgx reads HEIC/HEIF containers (brands <code>heic</code>, <code>heix</code>, <code>mif1</code>, <code>msf1</code>) and transcodes them to any writable format. It does not write HEIC output — Debian's libheif pulls in libx265 for HEVC encoding, which is GPL and complicates redistribution. Use <code>--format avif</code> for a modern HEIF-family output that goes through the AV1 path (royalty-free) instead.
+</div>
+
+<div class="callout warn">
+  <strong>HEIF/AVIF require the <code>heif</code> build tag.</strong>
+  libheif is a C library accessed via CGO. The Docker build always sets <code>-tags heif</code>, so the prod image has full support. A local <code>go build</code> without the tag omits HEIF/AVIF entirely: HEIC/AVIF inputs fail to decode and <code>--format avif</code> returns an error at encode time. Install <code>libheif-dev libaom-dev libde265-dev</code> and pass <code>-tags heif</code> for local development with HEIF.
+</div>
+
+<div class="callout warn">
+  <strong>WebP encoding is lossless only.</strong>
+  imgx uses a pure-Go WebP encoder (<code>github.com/HugoSmits86/nativewebp</code>) to avoid a libwebp/CGO dependency. The encoder produces lossless WebP files, so the <code>--quality</code> flag has no effect for WebP output. File sizes will therefore be larger than what a lossy libwebp encoder would produce.
+</div>
+
+<div class="callout warn">
+  <strong>GIF writes only the first frame.</strong>
+  Animated GIFs are decoded frame-by-frame but only frame 0 is written to the output. Multi-frame/animated output is out of scope for v1.
+</div>
+
+<div class="callout">
+  <strong>BMP is read-only.</strong>
+  You can read BMP inputs, but you must pass <code>--format</code> to convert them to a writable format. imgx does not include a BMP encoder.
+</div>
+
+<div class="callout">
+  <strong>No GUI, no video, no cloud upload.</strong>
+  These are explicitly out of scope for v1.
+</div>
+
+<!-- ========================================================= ENV -->
+<h2 id="env">Environment variables</h2>
+
+<p>Two distinct kinds of env var exist in this project — don't confuse them:</p>
+
+<h3>Binary flags (<code>IMGX_*</code>)</h3>
+
+<p>Any CLI flag can be set via an environment variable prefixed <code>IMGX_</code> and using the upper-case flag name with dashes replaced by underscores. These are read by the <code>imgx</code> binary itself (via Viper) and sit between config-file values and CLI flags in the <a href="#precedence">precedence order</a>.</p>
+
+<table>
+  <thead><tr><th>Variable</th><th>Equivalent flag</th></tr></thead>
+  <tbody>
+    <tr><td><code>IMGX_OUT</code></td><td><code>--out</code></td></tr>
+    <tr><td><code>IMGX_NAME</code></td><td><code>--name</code></td></tr>
+    <tr><td><code>IMGX_WIDTH</code></td><td><code>--width</code></td></tr>
+    <tr><td><code>IMGX_HEIGHT</code></td><td><code>--height</code></td></tr>
+    <tr><td><code>IMGX_FIT</code></td><td><code>--fit</code></td></tr>
+    <tr><td><code>IMGX_FORMAT</code></td><td><code>--format</code></td></tr>
+    <tr><td><code>IMGX_QUALITY</code></td><td><code>--quality</code></td></tr>
+    <tr><td><code>IMGX_SORT</code></td><td><code>--sort</code></td></tr>
+    <tr><td><code>IMGX_RECURSIVE</code></td><td><code>--recursive</code></td></tr>
+    <tr><td><code>IMGX_DRY_RUN</code></td><td><code>--dry-run</code></td></tr>
+    <tr><td><code>IMGX_VERBOSE</code></td><td><code>--verbose</code></td></tr>
+    <tr><td><code>IMGX_CONCURRENCY</code></td><td><code>--concurrency</code></td></tr>
+  </tbody>
+</table>
+
+<h3>Compose interpolation (<code>.env</code>)</h3>
+
+<p>Docker Compose auto-loads <code>.env</code> from the project root and substitutes <code>${VAR}</code> references in <code>docker-compose.yml</code> before starting containers. These vars control the <strong>compose file itself</strong> (port mapping, bind interface) — they are not passed to the <code>imgx</code> binary.</p>
+
+<table>
+  <thead><tr><th>Variable</th><th>Default</th><th>Effect</th></tr></thead>
+  <tbody>
+    <tr><td><code>IMGX_PORT</code></td><td><code>8080</code></td><td>Host-side port mapped to container port 8080.</td></tr>
+    <tr><td><code>IMGX_BIND</code></td><td><code>0.0.0.0</code></td><td>Host interface the port is published on. Set to <code>127.0.0.1</code> for loopback-only.</td></tr>
+  </tbody>
+</table>
+
+<p>A starter <code>.env.example</code> is checked into the repo:</p>
+
+<pre><code># Copy to `.env` and adjust as needed.
+#   cp .env.example .env
+IMGX_PORT=8080
+IMGX_BIND=0.0.0.0
+</code></pre>
+
+<p><code>.env</code> itself is gitignored (<code>.env.example</code> is the template). Since these variables are only consumed by Compose's string interpolation, editing <code>.env</code> does not affect the <code>imgx serve</code> process inside the container — the server always binds to <code>0.0.0.0:8080</code> internally, and the host mapping is what changes.</p>
+
+<hr>
+
+<p class="small">Generated for imgx v1. Last updated alongside the source tree in this repository.</p>
+
+</main>
+</div>
+</body>
+</html>

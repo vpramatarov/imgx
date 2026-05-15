@@ -1,0 +1,572 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>imgx — batch image processor</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; }
+
+    :root {
+      color-scheme: light dark;
+      --bg: #f6f7fb;
+      --bg-grad-1: #eef1ff;
+      --bg-grad-2: #fdf2f8;
+      --surface: #ffffff;
+      --surface-muted: #f8f9fc;
+      --border: #e4e7ef;
+      --border-strong: #c9cee0;
+      --text: #171a2b;
+      --text-muted: #5c6278;
+      --text-soft: #8087a0;
+      --accent: #5b5bf7;
+      --accent-hover: #4848e6;
+      --accent-soft: #eef0ff;
+      --accent-ring: rgba(91, 91, 247, 0.28);
+      --shadow-sm: 0 1px 2px rgba(20, 22, 45, 0.06);
+      --shadow-md: 0 10px 30px -12px rgba(20, 22, 45, 0.18);
+      --shadow-lg: 0 30px 60px -20px rgba(20, 22, 45, 0.25);
+      --radius: 14px;
+      --radius-sm: 10px;
+      --radius-xs: 8px;
+      --font: "Inter", "Segoe UI", system-ui, -apple-system, sans-serif;
+    }
+
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #0c0e1a;
+        --bg-grad-1: #141833;
+        --bg-grad-2: #1c1430;
+        --surface: #151828;
+        --surface-muted: #1b1f32;
+        --border: #262a40;
+        --border-strong: #363b56;
+        --text: #eef0fa;
+        --text-muted: #a9afc7;
+        --text-soft: #767d97;
+        --accent: #8a8aff;
+        --accent-hover: #9d9dff;
+        --accent-soft: #23264a;
+        --accent-ring: rgba(138, 138, 255, 0.3);
+        --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
+        --shadow-md: 0 10px 30px -12px rgba(0, 0, 0, 0.6);
+        --shadow-lg: 0 30px 60px -20px rgba(0, 0, 0, 0.7);
+      }
+    }
+
+    html, body { height: 100%; }
+
+    body {
+      margin: 0;
+      font-family: var(--font);
+      color: var(--text);
+      background: var(--bg);
+      background-image:
+        radial-gradient(ellipse 80% 50% at 20% -10%, var(--bg-grad-1), transparent 60%),
+        radial-gradient(ellipse 70% 50% at 100% 10%, var(--bg-grad-2), transparent 55%);
+      background-attachment: fixed;
+      -webkit-font-smoothing: antialiased;
+      line-height: 1.5;
+    }
+
+    .page {
+      max-width: 720px;
+      margin: 0 auto;
+      padding: 3rem 1.25rem 4rem;
+    }
+
+    header { margin-bottom: 2rem; }
+
+    .brand {
+      display: inline-flex;
+      align-items: center;
+      gap: .6rem;
+      padding: .35rem .7rem .35rem .4rem;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      box-shadow: var(--shadow-sm);
+      font-size: .8rem;
+      color: var(--text-muted);
+      margin-bottom: 1rem;
+    }
+    .brand-dot {
+      width: 22px; height: 22px;
+      border-radius: 7px;
+      background: linear-gradient(135deg, #7a7aff, #c27cff);
+      box-shadow: inset 0 0 0 1px rgba(255,255,255,.15);
+    }
+
+    h1 {
+      margin: 0;
+      font-size: clamp(1.8rem, 4vw, 2.25rem);
+      letter-spacing: -0.02em;
+      font-weight: 700;
+    }
+    p.sub {
+      margin: .5rem 0 0;
+      color: var(--text-muted);
+      font-size: 1rem;
+      max-width: 50ch;
+    }
+
+    form {
+      display: grid;
+      gap: 1rem;
+    }
+
+    fieldset {
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1.25rem 1.25rem 1rem;
+      margin: 0;
+      background: var(--surface);
+      box-shadow: var(--shadow-sm);
+      transition: border-color .15s ease, box-shadow .15s ease;
+    }
+    fieldset:focus-within {
+      border-color: var(--border-strong);
+      box-shadow: var(--shadow-md);
+    }
+
+    legend {
+      padding: 0 .5rem;
+      margin-left: -.25rem;
+      font-weight: 600;
+      font-size: .82rem;
+      text-transform: uppercase;
+      letter-spacing: .08em;
+      color: var(--text-muted);
+    }
+
+    label {
+      display: block;
+      font-size: .9rem;
+      color: var(--text);
+    }
+    .label-text {
+      display: block;
+      font-size: .82rem;
+      font-weight: 500;
+      color: var(--text-muted);
+      margin-bottom: .35rem;
+    }
+
+    input[type=text],
+    input[type=number],
+    select {
+      width: 100%;
+      padding: .6rem .75rem;
+      font: inherit;
+      font-size: .95rem;
+      color: var(--text);
+      background: var(--surface-muted);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      transition: border-color .15s ease, box-shadow .15s ease, background .15s ease;
+      appearance: none;
+      -webkit-appearance: none;
+    }
+    input[type=text]:hover,
+    input[type=number]:hover,
+    select:hover {
+      border-color: var(--border-strong);
+    }
+    input[type=text]:focus,
+    input[type=number]:focus,
+    select:focus {
+      outline: none;
+      border-color: var(--accent);
+      box-shadow: 0 0 0 4px var(--accent-ring);
+      background: var(--surface);
+    }
+
+    select {
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='none' stroke='%236b7280' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round' d='M3 4.5l3 3 3-3'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right .75rem center;
+      padding-right: 2rem;
+    }
+
+    /* File upload */
+    .file-drop {
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: .35rem;
+      padding: 1.75rem 1rem;
+      border: 1.5px dashed var(--border-strong);
+      border-radius: var(--radius-sm);
+      background: var(--surface-muted);
+      text-align: center;
+      cursor: pointer;
+      transition: border-color .15s ease, background .15s ease, color .15s ease;
+    }
+    .file-drop:hover,
+    .file-drop.is-drag {
+      border-color: var(--accent);
+      background: var(--accent-soft);
+      color: var(--accent);
+    }
+    .file-drop input[type=file] {
+      position: absolute; inset: 0;
+      width: 100%; height: 100%;
+      opacity: 0;
+      cursor: pointer;
+    }
+    .file-drop-title {
+      font-weight: 600;
+      font-size: .95rem;
+      color: var(--text);
+    }
+    .file-drop-hint {
+      font-size: .82rem;
+      color: var(--text-soft);
+    }
+    .file-drop-icon {
+      width: 34px; height: 34px;
+      margin-bottom: .35rem;
+      color: var(--accent);
+    }
+    .file-drop.is-drag .file-drop-title,
+    .file-drop:hover .file-drop-title { color: var(--accent); }
+
+    /* Resize grid — custom radio cards */
+    .resize-options {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: .6rem;
+      margin-top: .5rem;
+    }
+    .resize-card {
+      display: flex;
+      flex-direction: column;
+      gap: .4rem;
+      padding: .75rem .85rem;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      background: var(--surface-muted);
+      cursor: pointer;
+      transition: border-color .15s ease, background .15s ease, box-shadow .15s ease;
+    }
+    .resize-card:hover { border-color: var(--border-strong); }
+    .resize-card input[type=radio] {
+      position: absolute;
+      opacity: 0;
+      pointer-events: none;
+    }
+    .resize-card-head {
+      display: flex;
+      align-items: center;
+      gap: .5rem;
+      font-size: .9rem;
+      font-weight: 500;
+      color: var(--text);
+    }
+    .resize-card-dot {
+      width: 16px; height: 16px;
+      border-radius: 50%;
+      border: 1.5px solid var(--border-strong);
+      background: var(--surface);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      transition: border-color .15s ease, background .15s ease;
+    }
+    .resize-card-dot::after {
+      content: "";
+      width: 7px; height: 7px;
+      border-radius: 50%;
+      background: var(--accent);
+      transform: scale(0);
+      transition: transform .15s ease;
+    }
+    .resize-card:has(input:checked) {
+      border-color: var(--accent);
+      background: var(--accent-soft);
+      box-shadow: 0 0 0 3px var(--accent-ring);
+    }
+    .resize-card:has(input:checked) .resize-card-dot {
+      border-color: var(--accent);
+    }
+    .resize-card:has(input:checked) .resize-card-dot::after {
+      transform: scale(1);
+    }
+    .resize-card input[type=text],
+    .resize-card input[type=number] {
+      padding: .45rem .6rem;
+      font-size: .9rem;
+    }
+
+    .row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: .85rem;
+    }
+
+    .stack { display: grid; gap: .85rem; }
+
+    [hidden] { display: none !important; }
+
+    /* Submit */
+    .actions {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1rem;
+      margin-top: .5rem;
+    }
+    button[type=submit] {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: .5rem;
+      padding: .8rem 1.4rem;
+      font: inherit;
+      font-size: .98rem;
+      font-weight: 600;
+      color: #fff;
+      background: var(--accent);
+      border: none;
+      border-radius: var(--radius-sm);
+      cursor: pointer;
+      box-shadow: var(--shadow-md);
+      transition: background .15s ease, transform .08s ease, box-shadow .15s ease;
+    }
+    button[type=submit]:hover {
+      background: var(--accent-hover);
+      box-shadow: var(--shadow-lg);
+    }
+    button[type=submit]:active { transform: translateY(1px); }
+    button[type=submit]:focus-visible {
+      outline: none;
+      box-shadow: 0 0 0 4px var(--accent-ring), var(--shadow-md);
+    }
+    button[type=submit] svg { width: 16px; height: 16px; }
+
+    .actions-note {
+      font-size: .82rem;
+      color: var(--text-soft);
+    }
+
+    .foot {
+      margin-top: 2.5rem;
+      padding-top: 1.25rem;
+      border-top: 1px solid var(--border);
+      font-size: .82rem;
+      color: var(--text-soft);
+      text-align: center;
+    }
+
+    @media (max-width: 520px) {
+      .page { padding: 2rem 1rem 3rem; }
+      .row { grid-template-columns: 1fr; }
+      .resize-options { grid-template-columns: 1fr; }
+      .actions { flex-direction: column; align-items: stretch; }
+      button[type=submit] { width: 100%; }
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <header>
+      <span class="brand">
+        <span class="brand-dot" aria-hidden="true"></span>
+        <span>imgx · batch image processor</span>
+      </span>
+      <h1>Resize, rename, convert.</h1>
+      <p class="sub">Drop a batch of images, pick your settings, and get them back as a single ZIP. EXIF is stripped on the way through.</p>
+    </header>
+
+    <form action="/process" method="post" enctype="multipart/form-data">
+      <fieldset>
+        <legend>Images</legend>
+        <label class="file-drop" id="file-drop">
+          <svg class="file-drop-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+            <polyline points="17 8 12 3 7 8"/>
+            <line x1="12" y1="3" x2="12" y2="15"/>
+          </svg>
+          <span class="file-drop-title" id="file-drop-title">Drop images here or click to browse</span>
+          <span class="file-drop-hint" id="file-drop-hint">PNG, JPEG, WebP, AVIF, HEIC, GIF, TIFF, BMP</span>
+          <input type="file" name="files" id="files" multiple required accept="image/*">
+        </label>
+      </fieldset>
+
+      <fieldset>
+        <legend>Naming</legend>
+        <label>
+          <span class="label-text">Base name</span>
+          <input type="text" name="name" placeholder="image" maxlength="120">
+        </label>
+      </fieldset>
+
+      <fieldset>
+        <legend>Resize</legend>
+        <div class="resize-options">
+          <label class="resize-card">
+            <span class="resize-card-head">
+              <input type="radio" name="resize-mode" value="none" checked>
+              <span class="resize-card-dot" aria-hidden="true"></span>
+              <span>None</span>
+            </span>
+          </label>
+          <label class="resize-card">
+            <span class="resize-card-head">
+              <input type="radio" name="resize-mode" value="width">
+              <span class="resize-card-dot" aria-hidden="true"></span>
+              <span>Width (px)</span>
+            </span>
+            <input type="number" name="width" min="1" max="20000" placeholder="1200">
+          </label>
+          <label class="resize-card">
+            <span class="resize-card-head">
+              <input type="radio" name="resize-mode" value="height">
+              <span class="resize-card-dot" aria-hidden="true"></span>
+              <span>Height (px)</span>
+            </span>
+            <input type="number" name="height" min="1" max="20000" placeholder="1200">
+          </label>
+          <label class="resize-card">
+            <span class="resize-card-head">
+              <input type="radio" name="resize-mode" value="fit">
+              <span class="resize-card-dot" aria-hidden="true"></span>
+              <span>Fit W×H</span>
+            </span>
+            <input type="text" name="fit" pattern="[0-9]+x[0-9]+" placeholder="1200x1200">
+          </label>
+        </div>
+      </fieldset>
+
+      <fieldset>
+        <legend>Output</legend>
+        <div class="stack">
+          <div class="row">
+            <label>
+              <span class="label-text">Format</span>
+              <select name="format" id="format-select">
+                <option value="">Keep original</option>
+                <option value="jpg">JPEG</option>
+                <option value="png">PNG</option>
+                <option value="webp">WebP (lossless)</option>
+                <option value="avif">AVIF</option>
+                <option value="gif">GIF</option>
+                <option value="tiff">TIFF</option>
+              </select>
+              <small id="format-note" hidden></small>
+            </label>
+            <label id="quality-field" hidden>
+              <span class="label-text" id="quality-label">Quality</span>
+              <input type="number" name="quality" min="1" max="100" value="85">
+            </label>
+          </div>
+          <label>
+            <span class="label-text">Sort order</span>
+            <select name="sort">
+              <option value="">OS order (default)</option>
+              <option value="alpha">Alphabetical</option>
+              <option value="mtime">Modified time</option>
+            </select>
+          </label>
+        </div>
+      </fieldset>
+
+      <div class="actions">
+        <span class="actions-note">Uploads are processed in memory and never persisted.</span>
+        <button type="submit">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M5 12h14"/>
+            <path d="M13 5l7 7-7 7"/>
+          </svg>
+          <span>Process batch</span>
+        </button>
+      </div>
+    </form>
+
+    <p class="foot">imgx · single-binary batch image processor</p>
+  </div>
+
+  <script>
+    (function () {
+      var sel = document.getElementById('format-select');
+      var q = document.getElementById('quality-field');
+      var label = document.getElementById('quality-label');
+      function sync() {
+        var v = sel.value;
+        var usesQuality = (v === 'jpg' || v === 'avif');
+        q.hidden = !usesQuality;
+        if (usesQuality) label.textContent = (v === 'avif' ? 'AVIF quality' : 'JPEG quality');
+      }
+      sel.addEventListener('change', sync);
+      sync();
+    })();
+
+    (function () {
+      var drop = document.getElementById('file-drop');
+      var input = document.getElementById('files');
+      var title = document.getElementById('file-drop-title');
+      var hint = document.getElementById('file-drop-hint');
+      var defaultTitle = title.textContent;
+      var defaultHint = hint.textContent;
+
+      function update() {
+        var n = input.files ? input.files.length : 0;
+        if (n === 0) {
+          title.textContent = defaultTitle;
+          hint.textContent = defaultHint;
+          return;
+        }
+        title.textContent = n + (n === 1 ? ' image selected' : ' images selected');
+        var names = [];
+        for (var i = 0; i < Math.min(n, 3); i++) names.push(input.files[i].name);
+        hint.textContent = names.join(', ') + (n > 3 ? ' …' : '');
+      }
+
+      input.addEventListener('change', update);
+      input.addEventListener('change', checkReadOnlyInputs);
+
+      // If the user selects HEIC/BMP (decode-only in imgx) while the
+      // format dropdown is "Keep original", auto-switch to JPEG and
+      // surface a note — otherwise the server would reject the batch.
+      function checkReadOnlyInputs() {
+        var sel = document.getElementById('format-select');
+        var note = document.getElementById('format-note');
+        var readOnly = /\.(heic|heif|bmp)$/i;
+        var hits = [];
+        if (input.files) {
+          for (var i = 0; i < input.files.length; i++) {
+            if (readOnly.test(input.files[i].name)) hits.push(input.files[i].name);
+          }
+        }
+        if (hits.length === 0) {
+          note.hidden = true;
+          note.textContent = '';
+          return;
+        }
+        if (sel.value === '') {
+          sel.value = 'jpg';
+          sel.dispatchEvent(new Event('change'));
+        }
+        note.hidden = false;
+        note.textContent = hits.length + ' file(s) are HEIC/BMP (decode-only) — output set to JPEG.';
+      }
+
+      ['dragenter', 'dragover'].forEach(function (ev) {
+        drop.addEventListener(ev, function (e) {
+          e.preventDefault();
+          drop.classList.add('is-drag');
+        });
+      });
+      ['dragleave', 'drop'].forEach(function (ev) {
+        drop.addEventListener(ev, function (e) {
+          e.preventDefault();
+          drop.classList.remove('is-drag');
+        });
+      });
+    })();
+  </script>
+</body>
+</html>

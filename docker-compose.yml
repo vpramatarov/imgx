@@ -1,0 +1,26 @@
+services:
+  # Default: HTTP server on http://localhost:${IMGX_PORT:-8080}
+  #   docker compose up --build
+  # Override host port/bind via .env (see .env.example).
+  imgx:
+    build:
+      context: .
+      target: prod
+    image: imgx:prod
+    ports:
+      - "${IMGX_BIND:-0.0.0.0}:${IMGX_PORT:-8080}:8080"
+    restart: unless-stopped
+
+  # Optional: one-shot CLI batch run (reads ./input, writes ./output)
+  #   docker compose --profile cli run --rm imgx-cli --out /data/output --width 1200 --format jpg /data/input
+  imgx-cli:
+    build:
+      context: .
+      target: prod
+    image: imgx:prod
+    profiles: ["cli"]
+    volumes:
+      - ./input:/data/input:ro
+      - ./output:/data/output
+    entrypoint: ["/imgx"]
+    command: []

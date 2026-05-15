@@ -1,0 +1,12 @@
+.git/
+.idea/
+.vscode/
+tmp/
+input/
+output/
+out/
+*.log
+README.md
+imgx
+imgx.exe
+*.html

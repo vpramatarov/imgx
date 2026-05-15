@@ -1,0 +1,34 @@
+services:
+  imgx:
+    build:
+      context: .
+      target: dev
+    image: imgx:dev
+    working_dir: /app
+    volumes:
+      - .:/app
+      - ./input:/data/input:ro
+      - ./output:/data/output
+      - go-mod-cache:/go/pkg/mod
+      - go-build-cache:/root/.cache/go-build
+    command: ["air", "-c", ".air.toml"]
+
+  imgx-cli:
+    build:
+      context: .
+      target: dev
+    image: imgx:dev
+    profiles: ["cli"]
+    working_dir: /app
+    volumes:
+      - .:/app
+      - ./input:/data/input:ro
+      - ./output:/data/output
+      - go-mod-cache:/go/pkg/mod
+      - go-build-cache:/root/.cache/go-build
+    entrypoint: ["go", "run", "./main.go"]
+    command: []
+
+volumes:
+  go-mod-cache:
+  go-build-cache:

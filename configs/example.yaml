@@ -1,0 +1,16 @@
+# imgx example config
+# All values below are overridden by matching CLI flags.
+
+input: ./photos
+out: ./out
+name: my-images
+width: 1200
+format: jpg
+quality: 85
+sort: alpha
+recursive: true
+concurrency: 4
+# fit: 1200x1200       # mutually exclusive with width/height
+# height: 800
+# dry-run: false
+# verbose: false
