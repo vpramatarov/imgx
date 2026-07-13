@@ -14,6 +14,7 @@ vendor/
 !.env.example
 /*.md
 !/README.md
+*.zip
 
 # --- Editors / IDEs ---
 # JetBrains (GoLand, IntelliJ, etc.)
