@@ -16,6 +16,7 @@ import (
 // produce a validated config.Config pointing at the populated temp dirs.
 type formInputs struct {
 	Name       string
+	KeepNames  bool
 	ResizeMode string
 	Width      int
 	Height     int
@@ -32,6 +33,7 @@ type formInputs struct {
 func parseInputs(r *http.Request) (formInputs, error) {
 	in := formInputs{
 		Name:       strings.TrimSpace(r.FormValue("name")),
+		KeepNames:  r.FormValue("keep-names") != "",
 		ResizeMode: r.FormValue("resize-mode"),
 		Format:     strings.ToLower(strings.TrimSpace(r.FormValue("format"))),
 		Sort:       r.FormValue("sort"),
@@ -86,6 +88,7 @@ func (in formInputs) toConfig(inputDir, outputDir string, concurrency int) (conf
 		Input:       inputDir,
 		Output:      outputDir,
 		Name:        in.Name,
+		KeepNames:   in.KeepNames,
 		Width:       in.Width,
 		Height:      in.Height,
 		Fit:         in.Fit,

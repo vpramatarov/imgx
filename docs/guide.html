@@ -201,6 +201,7 @@
   <h2>How It Works</h2>
   <a href="#pipeline">Processing pipeline</a>
   <a href="#naming">Output naming</a>
+  <a href="#keep-names">Keeping original names</a>
   <a href="#translit">Transliteration</a>
   <a href="#conflicts">Conflict resolution</a>
   <a href="#concurrency">Concurrency model</a>
@@ -237,7 +238,7 @@
 <p>A single invocation can do any subset of:</p>
 <ul>
   <li><strong>Resize</strong> to a target width, height, or fit-within bounding box (aspect ratio preserved; never upscales in fit mode).</li>
-  <li><strong>Rename</strong> to a sanitized, ASCII base name followed by a sequential index.</li>
+  <li><strong>Rename</strong> to a sanitized, ASCII base name followed by a sequential index — or keep each file's original sanitized name with <code>--keep-names</code>.</li>
   <li><strong>Convert format</strong> between JPEG, PNG, GIF, WebP, AVIF, and TIFF. HEIC and HEIF inputs are decoded and transcoded (decode-only).</li>
   <li><strong>Strip EXIF</strong> metadata — location, camera make/model, timestamps, etc.</li>
 </ul>
@@ -257,7 +258,7 @@
 <span class="prompt">$</span> open http://localhost:8080
 </pre>
 
-<p>Drop images into the form, pick resize / format / quality / sort, submit, and the browser downloads a ZIP containing the processed files.</p>
+<p>Drop images (or a ZIP of images) into the form, pick naming / resize / format / quality / sort, submit, and the browser downloads a ZIP containing the processed files.</p>
 
 <h4>Option 2 &mdash; CLI batch (opt-in profile)</h4>
 <pre class="shell"><span class="comment"># 1. Drop images into ./input</span>
@@ -323,6 +324,10 @@ input-1.jpg  input-2.jpg  input-3.jpg  ...
   <dt>-n, --name &lt;string&gt;</dt>
   <dd class="meta">Default: base name of the input directory.</dd>
   <dd>Base name for output files. Run through transliteration + sanitization before use. See <a href="#naming">Output naming</a>.</dd>
+
+  <dt>--keep-names</dt>
+  <dd class="meta">Default: false.</dd>
+  <dd>Keep each file's original name (transliterated + sanitized) instead of the sequential <code>&lt;base&gt;-&lt;n&gt;</code> scheme; <code>--name</code> is ignored. Only the extension changes with the output format. See <a href="#naming">Output naming</a>.</dd>
 
   <dt>-w, --width &lt;int&gt;</dt>
   <dd class="meta">Mutually exclusive with <code>--height</code> and <code>--fit</code>.</dd>
@@ -490,6 +495,10 @@ concurrency = 4
   <dt><code>&lt;ext&gt;</code></dt>
   <dd>The canonical extension of the output format: <code>jpg</code>, <code>png</code>, <code>gif</code>, <code>webp</code>, <code>avif</code>, <code>tiff</code>.</dd>
 </dl>
+
+<h3 id="keep-names">Keeping original names</h3>
+
+<p>With <code>--keep-names</code> (or the <em>Keep original file names</em> checkbox in the web form), the sequential scheme is skipped: each output keeps its input's file name stem, run through the same transliteration and sanitization stages below, and only the extension changes with the output format (<code>My Photo.PNG</code> &rarr; <code>my-photo.jpg</code> when converting to JPEG). <code>--name</code> is ignored in this mode. If two inputs clean to the same stem (or the name is already taken in the output directory), <code>-1</code>, <code>-2</code>, ... suffixes are appended.</p>
 
 <h3 id="translit">Transliteration and sanitization</h3>
 
@@ -724,13 +733,13 @@ Processed: 42  Errors: 0  Elapsed: 2.3s  Dry-run: false  (avg 54ms/image)
 <!-- ========================================================= HTTP UI -->
 <h2 id="http-ui">HTTP UI (<code>imgx serve</code>)</h2>
 
-<p>imgx ships an optional HTTP server, exposed as a subcommand of the same binary. It serves a minimal upload form at <code>/</code>, runs uploads through the same pipeline the CLI uses, and streams the processed batch back as a ZIP download.</p>
+<p>imgx ships an optional HTTP server, exposed as a subcommand of the same binary. It serves a minimal upload form at <code>/</code>, runs uploads — individual images or ZIP archives of images — through the same pipeline the CLI uses, and streams the processed batch back as a ZIP download.</p>
 
 <pre class="shell"><span class="prompt">$</span> imgx serve
 imgx: listening on http://127.0.0.1:8080
 </pre>
 
-<p>Open the printed URL in a browser, pick one or more images, select resize / format / quality / sort options, and submit. The browser downloads a ZIP containing processed files named <code>&lt;base&gt;-&lt;n&gt;.&lt;ext&gt;</code> — same naming convention as the CLI.</p>
+<p>Open the printed URL in a browser, pick one or more images (or a ZIP of images), select naming / resize / format / quality / sort options, and submit. The browser downloads a ZIP containing processed files named <code>&lt;base&gt;-&lt;n&gt;.&lt;ext&gt;</code> — same naming convention as the CLI — or the original sanitized names when <em>Keep original file names</em> is checked.</p>
 
 <h3>Flags</h3>
 
@@ -741,11 +750,11 @@ imgx: listening on http://127.0.0.1:8080
 
   <dt>--max-file-size &lt;bytes&gt;</dt>
   <dd class="meta">Default: <code>52428800</code> (50 MiB).</dd>
-  <dd>Maximum size per uploaded file. Exceeding this returns HTTP 413.</dd>
+  <dd>Maximum size per uploaded file. Also applies to each entry inside an uploaded ZIP, measured <em>uncompressed</em> (and the archive itself must fit as an upload). Exceeding this returns HTTP 413 with a message naming the offending file.</dd>
 
   <dt>--max-files &lt;int&gt;</dt>
   <dd class="meta">Default: <code>100</code>.</dd>
-  <dd>Maximum number of files per request. Exceeding this returns HTTP 413.</dd>
+  <dd>Maximum number of files per request. Images extracted from uploaded ZIPs count toward the same limit. Exceeding this returns HTTP 413.</dd>
 
   <dt>--shutdown-timeout &lt;duration&gt;</dt>
   <dd class="meta">Default: <code>30s</code>.</dd>
@@ -758,7 +767,7 @@ imgx: listening on http://127.0.0.1:8080
   <thead><tr><th>Method + Path</th><th>Purpose</th></tr></thead>
   <tbody>
     <tr><td><code>GET /</code></td><td>Renders the single-page upload form.</td></tr>
-    <tr><td><code>POST /process</code></td><td>Multipart upload handler. Response: <code>Content-Type: application/zip</code> with a timestamped <code>filename</code> in <code>Content-Disposition</code>.</td></tr>
+    <tr><td><code>POST /process</code></td><td>Multipart upload handler; parts may be images or ZIP archives of images (expanded server-side). Response: <code>Content-Type: application/zip</code> with a timestamped <code>filename</code> in <code>Content-Disposition</code>.</td></tr>
     <tr><td><code>GET /healthz</code></td><td>Returns 200 "ok". For container health checks.</td></tr>
   </tbody>
 </table>
@@ -768,18 +777,19 @@ imgx: listening on http://127.0.0.1:8080
 <ol>
   <li>The request body is capped at <code>--max-file-size &times; --max-files</code> via <code>http.MaxBytesReader</code>.</li>
   <li>After <code>ParseMultipartForm</code>, per-file size and total file count are re-checked.</li>
-  <li>Each upload's filename is sanitised (<code>filepath.Base</code> + <code>naming.Clean</code>) and the body is written into a fresh <code>os.MkdirTemp</code> input directory.</li>
+  <li>Each part is sniffed by magic bytes. ZIP parts (<code>PK</code> signature) are expanded in place: every entry is sniffed too, images flow through the same sanitise/dedupe naming as direct uploads, non-image entries are skipped (logged and reported in <code>errors.txt</code>), and OS metadata (<code>__MACOSX/</code>, <code>._*</code>, <code>.DS_Store</code>, <code>Thumbs.db</code>) is dropped silently. Per-entry uncompressed size and the running file count are enforced against <code>--max-file-size</code> / <code>--max-files</code> (413 on violation); a corrupt archive returns 400. Non-image direct parts are likewise skipped and reported.</li>
+  <li>Surviving uploads' filenames are sanitised (<code>filepath.Base</code> + <code>naming.Clean</code>) and the bodies are written into a fresh <code>os.MkdirTemp</code> input directory.</li>
   <li>A <code>config.Config</code> is built from the form fields and passed through the same <code>config.Validate</code> the CLI uses.</li>
   <li><strong>Preflight.</strong> When the user picks <em>Keep original</em> (empty <code>format</code>), the scanned entries are checked against <code>format.CanEncode</code>. Any read-only format (HEIC, BMP) short-circuits the request with HTTP 400 and a message naming the offending files and the writable formats — catching the "silent drop" trap where all files would otherwise fail the same way at encode time.</li>
   <li><code>scanner.Scan</code> (magic-byte detection) and <code>pipeline.Run</code> process the temp directory into a temp output directory — same worker pool, same deterministic indexing.</li>
-  <li>On <strong>partial failure</strong> (some files succeeded, some didn't) an <code>errors.txt</code> manifest is written into the output dir listing each failed file and its reason, so the user sees dropped inputs without having to read server logs.</li>
+  <li>On <strong>partial failure</strong> (some files succeeded, some didn't) or when uploads/zip entries were skipped as non-images, an <code>errors.txt</code> manifest is written into the output dir listing each one and its reason, so the user sees dropped inputs without having to read server logs; the count is also exposed in an <code>X-Imgx-Failed</code> response header that the form surfaces as an inline warning.</li>
   <li>The output directory is walked and its files streamed into an <code>archive/zip</code> response (<code>Store</code>, no compression — images are already compressed).</li>
   <li>Both temp directories are removed via <code>defer</code> before the handler returns.</li>
 </ol>
 
 <div class="callout">
   <strong>Client-side guard</strong>
-  The upload form's JS watches for HEIC/HEIF/BMP filenames. When one is present and <em>Keep original</em> is selected, the dropdown auto-switches to JPEG and an inline note ("<code>N file(s) are HEIC/BMP (decode-only) — output set to JPEG.</code>") appears under the format selector, so the server-side 400 should only ever fire on non-browser clients.
+  The upload form's JS watches for HEIC/HEIF/BMP filenames. When one is present and <em>Keep original</em> is selected, the dropdown auto-switches to JPEG and an inline note ("<code>N file(s) are HEIC/BMP (decode-only) — output set to JPEG.</code>") appears under the format selector. HEIC/BMP files hidden inside an uploaded ZIP bypass this filename watcher — for those, the server-side "Keep original" preflight 400 is the guard, and its message renders inline under the form.
 </div>
 
 <div class="callout">
@@ -831,6 +841,7 @@ imgx: listening on http://127.0.0.1:8080
 <pre class="shell"><span class="prompt">$</span> go test ./...
 ok   github.com/vpramatarov/imgx/internal/format     0.014s
 ok   github.com/vpramatarov/imgx/internal/naming     0.018s
+ok   github.com/vpramatarov/imgx/internal/pipeline   0.055s
 ok   github.com/vpramatarov/imgx/internal/processor  0.120s
 ok   github.com/vpramatarov/imgx/internal/scanner    0.032s
 ok   github.com/vpramatarov/imgx/internal/server     0.090s
@@ -852,10 +863,11 @@ ok   github.com/vpramatarov/imgx/internal/server     0.090s
   <thead><tr><th>Package</th><th>Tests</th></tr></thead>
   <tbody>
     <tr><td><code>internal/format</code></td><td>Magic-byte detection for every supported signature; format parsing; read/write capability flags.</td></tr>
-    <tr><td><code>internal/naming</code></td><td>BGN/PCGN Cyrillic translit; go-unidecode fallback; sanitize edge cases; conflict resolution; concurrent reservation safety.</td></tr>
+    <tr><td><code>internal/naming</code></td><td>BGN/PCGN Cyrillic translit; go-unidecode fallback; sanitize edge cases; conflict resolution (sequential and stem-based <code>ResolveStem</code> for keep-names); concurrent reservation safety.</td></tr>
+    <tr><td><code>internal/pipeline</code></td><td>Worker-pool run with keep-names: stem-based output naming from raw disk names (spaces, uppercase extensions).</td></tr>
     <tr><td><code>internal/scanner</code></td><td>Sort modes (default, alpha, mtime); recursive vs non-recursive walk; non-image file skipping.</td></tr>
     <tr><td><code>internal/processor</code></td><td>Resize dimensions for width / height / fit modes; fit-no-upscale invariant; round-trip encode for JPEG/PNG/GIF/TIFF/WebP with magic-byte verification; HEIC encode rejection. Under <code>-tags heif</code>: AVIF round-trip.</td></tr>
-    <tr><td><code>internal/server</code></td><td>Index form served; healthz; happy-path multipart upload (PNG → JPEG ZIP); size/count limits (413); non-image rejection (400); missing-width validation; "Keep original" preflight rejection for read-only formats (BMP stands in for HEIC, no heif tag needed); partial-failure <code>errors.txt</code> manifest in the returned ZIP.</td></tr>
+    <tr><td><code>internal/server</code></td><td>Index form served; healthz; happy-path multipart upload (PNG → JPEG ZIP); size/count limits (413); non-image rejection (400); missing-width validation; "Keep original" preflight rejection for read-only formats (BMP stands in for HEIC, no heif tag needed); partial-failure <code>errors.txt</code> manifest in the returned ZIP; ZIP uploads (extraction, junk-entry skipping + reporting, corrupt/empty archives, oversized-entry and count-overflow 413s, zip-slip flattening, keep-names, silent OS-metadata drop); <code>X-Imgx-Failed</code> count-header assertions; direct keep-names; mixed direct+zip uploads.</td></tr>
   </tbody>
 </table>
 
@@ -934,6 +946,7 @@ ok   github.com/vpramatarov/imgx/internal/server     0.090s
 │       ├── router.go                # chi routes + middleware
 │       ├── handler.go               # index / process / health handlers
 │       ├── form.go                  # multipart form → config.Config
+│       ├── unzip.go                 # zip upload extraction (magic-byte sniff, caps, zip-slip guard)
 │       ├── zipresp.go               # streamed ZIP response
 │       ├── embed.go                 # //go:embed template
 │       └── templates/index.html     # upload form
@@ -1025,6 +1038,11 @@ recursive: true
 <span class="comment"># → ./out/plovdiv-foto-1.jpg, ./out/plovdiv-foto-2.jpg, ...</span>
 </pre>
 
+<h3>Keep original file names</h3>
+<pre class="shell"><span class="prompt">$</span> imgx --out ./out --keep-names --format jpg ./photos
+<span class="comment"># "My Photo.PNG" → ./out/my-photo.jpg, "second.png" → ./out/second.jpg</span>
+</pre>
+
 <!-- ========================================================= TROUBLESHOOTING -->
 <h2 id="troubleshooting">Troubleshooting</h2>
 
@@ -1101,6 +1119,7 @@ recursive: true
   <tbody>
     <tr><td><code>IMGX_OUT</code></td><td><code>--out</code></td></tr>
     <tr><td><code>IMGX_NAME</code></td><td><code>--name</code></td></tr>
+    <tr><td><code>IMGX_KEEP_NAMES</code></td><td><code>--keep-names</code></td></tr>
     <tr><td><code>IMGX_WIDTH</code></td><td><code>--width</code></td></tr>
     <tr><td><code>IMGX_HEIGHT</code></td><td><code>--height</code></td></tr>
     <tr><td><code>IMGX_FIT</code></td><td><code>--fit</code></td></tr>

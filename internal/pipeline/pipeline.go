@@ -13,6 +13,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"sync/atomic"
 
@@ -55,12 +56,9 @@ func Run(ctx context.Context, cfg config.Config, entries []scanner.Entry) (Summa
 	var sum Summary
 	var failedMu sync.Mutex
 	var wg sync.WaitGroup
-	workers := cfg.Concurrency
-	if workers < 1 {
-		workers = 1
-	}
+	workers := max(cfg.Concurrency, 1)
 	wg.Add(workers)
-	for i := 0; i < workers; i++ {
+	for range workers {
 		go func() {
 			defer wg.Done()
 			for j := range jobs {
@@ -127,7 +125,15 @@ func processOne(cfg config.Config, baseName string, e scanner.Entry, index int, 
 		return fmt.Errorf("encode: %w", err)
 	}
 
-	outPath, err := resolver.Resolve(baseName, index, outFmt.Ext())
+	var outPath string
+	if cfg.KeepNames {
+		// Strip the extension before Clean: Sanitize preserves dots, so
+		// Clean("My Photo.JPG") would otherwise keep ".jpg" in the stem.
+		stem := naming.Clean(strings.TrimSuffix(e.Name, filepath.Ext(e.Name)))
+		outPath, err = resolver.ResolveStem(stem, outFmt.Ext())
+	} else {
+		outPath, err = resolver.Resolve(baseName, index, outFmt.Ext())
+	}
 	if err != nil {
 		return fmt.Errorf("resolve: %w", err)
 	}

@@ -119,6 +119,9 @@ func TestProcessHappyPath(t *testing.T) {
 	if !strings.Contains(rr.Header().Get("Content-Disposition"), "attachment;") {
 		t.Fatalf("missing attachment disposition: %q", rr.Header().Get("Content-Disposition"))
 	}
+	if got := rr.Header().Get("X-Imgx-Failed"); got != "" {
+		t.Fatalf("X-Imgx-Failed = %q on full success, want unset", got)
+	}
 
 	zr, err := zip.NewReader(bytes.NewReader(rr.Body.Bytes()), int64(rr.Body.Len()))
 	if err != nil {
@@ -257,6 +260,44 @@ func TestProcessRejectsKeepOriginalForReadOnlyFormat(t *testing.T) {
 	}
 }
 
+func TestProcessKeepNames(t *testing.T) {
+	body, ct := buildMultipart(t, []uploadFile{
+		{Field: "files", Name: "Holiday Photo.png", Body: tinyPNG(t, 40, 40)},
+		{Field: "files", Name: "two.png", Body: tinyPNG(t, 30, 30)},
+	}, map[string]string{
+		"name":        "batch", // must be ignored when keep-names is on
+		"keep-names":  "on",
+		"resize-mode": "none",
+		"format":      "jpg",
+	})
+	req := httptest.NewRequest(http.MethodPost, "/process", body)
+	req.Header.Set("Content-Type", ct)
+	rr := httptest.NewRecorder()
+
+	newRouter(defaultOpts()).ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusOK {
+		t.Fatalf("status = %d, body:\n%s", rr.Code, rr.Body.String())
+	}
+	zr, err := zip.NewReader(bytes.NewReader(rr.Body.Bytes()), int64(rr.Body.Len()))
+	if err != nil {
+		t.Fatalf("zip reader: %v", err)
+	}
+	want := map[string]bool{"holiday-photo.jpg": false, "two.jpg": false}
+	for _, f := range zr.File {
+		if _, ok := want[f.Name]; !ok {
+			t.Errorf("unexpected entry %q (want cleaned original stems, not batch-N)", f.Name)
+			continue
+		}
+		want[f.Name] = true
+	}
+	for name, seen := range want {
+		if !seen {
+			t.Errorf("zip missing %q: %v", name, zipNames(zr))
+		}
+	}
+}
+
 func TestProcessPartialFailureEmitsErrorsManifest(t *testing.T) {
 	// PNG succeeds, BMP fails because "Keep original" isn't in play
 	// here — but BMP *can* be converted when format=jpg, so instead we
@@ -281,6 +322,9 @@ func TestProcessPartialFailureEmitsErrorsManifest(t *testing.T) {
 	newRouter(defaultOpts()).ServeHTTP(rr, req)
 	if rr.Code != http.StatusOK {
 		t.Fatalf("status = %d, want 200 (partial success); body=%s", rr.Code, rr.Body.String())
+	}
+	if got := rr.Header().Get("X-Imgx-Failed"); got != "1" {
+		t.Fatalf("X-Imgx-Failed = %q, want \"1\"", got)
 	}
 	zr, err := zip.NewReader(bytes.NewReader(rr.Body.Bytes()), int64(rr.Body.Len()))
 	if err != nil {
@@ -316,4 +360,318 @@ func zipNames(zr *zip.Reader) []string {
 		out = append(out, f.Name)
 	}
 	return out
+}
+
+// buildZip returns an in-memory zip archive with the given entries.
+func buildZip(t *testing.T, entries map[string][]byte) []byte {
+	t.Helper()
+	var buf bytes.Buffer
+	zw := zip.NewWriter(&buf)
+	for name, body := range entries {
+		w, err := zw.Create(name)
+		if err != nil {
+			t.Fatalf("zip create %q: %v", name, err)
+		}
+		if _, err := w.Write(body); err != nil {
+			t.Fatalf("zip write %q: %v", name, err)
+		}
+	}
+	if err := zw.Close(); err != nil {
+		t.Fatalf("zip close: %v", err)
+	}
+	return buf.Bytes()
+}
+
+// solidBMP returns a single-colour BMP: large uncompressed, tiny once
+// deflated — lets a zip entry exceed the per-file cap while the archive
+// itself stays under it.
+func solidBMP(t *testing.T, w, h int) []byte {
+	t.Helper()
+	img := image.NewRGBA(image.Rect(0, 0, w, h))
+	for y := 0; y < h; y++ {
+		for x := 0; x < w; x++ {
+			img.Set(x, y, color.RGBA{200, 100, 50, 255})
+		}
+	}
+	var buf bytes.Buffer
+	if err := bmp.Encode(&buf, img); err != nil {
+		t.Fatalf("encode bmp: %v", err)
+	}
+	return buf.Bytes()
+}
+
+func postZip(t *testing.T, opts Options, zipBody []byte, fields map[string]string) *httptest.ResponseRecorder {
+	t.Helper()
+	body, ct := buildMultipart(t, []uploadFile{
+		{Field: "files", Name: "batch.zip", Body: zipBody},
+	}, fields)
+	req := httptest.NewRequest(http.MethodPost, "/process", body)
+	req.Header.Set("Content-Type", ct)
+	rr := httptest.NewRecorder()
+	newRouter(opts).ServeHTTP(rr, req)
+	return rr
+}
+
+func TestProcessZipUploadWithJunkEntries(t *testing.T) {
+	zipBody := buildZip(t, map[string][]byte{
+		"photos/one.png":   tinyPNG(t, 40, 40),
+		"photos/two.png":   tinyPNG(t, 30, 30),
+		"notes/readme.txt": []byte("not an image"),
+		"nested.zip":       buildZip(t, map[string][]byte{"x.txt": []byte("junk")}),
+	})
+	rr := postZip(t, defaultOpts(), zipBody, map[string]string{
+		"name":        "batch",
+		"resize-mode": "none",
+		"format":      "jpg",
+	})
+	if rr.Code != http.StatusOK {
+		t.Fatalf("status = %d, body:\n%s", rr.Code, rr.Body.String())
+	}
+	if got := rr.Header().Get("X-Imgx-Failed"); got != "2" {
+		t.Fatalf("X-Imgx-Failed = %q, want \"2\" (txt + nested zip skipped)", got)
+	}
+	zr, err := zip.NewReader(bytes.NewReader(rr.Body.Bytes()), int64(rr.Body.Len()))
+	if err != nil {
+		t.Fatalf("zip reader: %v", err)
+	}
+	var jpgs int
+	var manifest []byte
+	for _, f := range zr.File {
+		switch {
+		case strings.HasSuffix(f.Name, ".jpg"):
+			jpgs++
+		case f.Name == "errors.txt":
+			rc, _ := f.Open()
+			manifest, _ = io.ReadAll(rc)
+			_ = rc.Close()
+		}
+	}
+	if jpgs != 2 {
+		t.Fatalf("want 2 processed images, got %d: %v", jpgs, zipNames(zr))
+	}
+	for _, want := range []string{"readme.txt", "nested.zip", "skipped"} {
+		if !strings.Contains(string(manifest), want) {
+			t.Fatalf("errors.txt missing %q:\n%s", want, manifest)
+		}
+	}
+}
+
+func TestProcessZipOnlyJunk(t *testing.T) {
+	zipBody := buildZip(t, map[string][]byte{
+		"a.txt": []byte("nope"),
+		"b.txt": []byte("still nope"),
+	})
+	rr := postZip(t, defaultOpts(), zipBody, map[string]string{"resize-mode": "none"})
+	if rr.Code != http.StatusBadRequest {
+		t.Fatalf("status = %d, want 400; body=%s", rr.Code, rr.Body.String())
+	}
+	got := rr.Body.String()
+	if !strings.Contains(got, "no decodable images") || !strings.Contains(got, "skipped") {
+		t.Fatalf("error does not explain the skips: %q", got)
+	}
+}
+
+func TestProcessCorruptZip(t *testing.T) {
+	corrupt := append([]byte("PK\x03\x04"), []byte("this is not a real zip archive at all")...)
+	rr := postZip(t, defaultOpts(), corrupt, map[string]string{"resize-mode": "none"})
+	if rr.Code != http.StatusBadRequest {
+		t.Fatalf("status = %d, want 400; body=%s", rr.Code, rr.Body.String())
+	}
+	if !strings.Contains(rr.Body.String(), "not a valid zip archive") {
+		t.Fatalf("error does not identify the bad archive: %q", rr.Body.String())
+	}
+}
+
+func TestProcessEmptyZip(t *testing.T) {
+	rr := postZip(t, defaultOpts(), buildZip(t, nil), map[string]string{"resize-mode": "none"})
+	if rr.Code != http.StatusBadRequest {
+		t.Fatalf("status = %d, want 400; body=%s", rr.Code, rr.Body.String())
+	}
+	if !strings.Contains(rr.Body.String(), "skipped") {
+		t.Fatalf("error does not mention the empty archive skip: %q", rr.Body.String())
+	}
+}
+
+func TestProcessZipOversizedEntry(t *testing.T) {
+	opts := defaultOpts()
+	opts.MaxFileSize = 64 << 10 // 64 KB; the solid BMP is ~157 KB raw but deflates far below this
+	zipBody := buildZip(t, map[string][]byte{
+		"big.bmp": solidBMP(t, 200, 200),
+	})
+	if int64(len(zipBody)) > opts.MaxFileSize {
+		t.Fatalf("fixture zip is %d bytes, exceeds the part cap itself", len(zipBody))
+	}
+	rr := postZip(t, opts, zipBody, map[string]string{"resize-mode": "none", "format": "jpg"})
+	if rr.Code != http.StatusRequestEntityTooLarge {
+		t.Fatalf("status = %d, want 413; body=%s", rr.Code, rr.Body.String())
+	}
+	got := rr.Body.String()
+	if !strings.Contains(got, "big.bmp") || !strings.Contains(got, "--max-file-size") {
+		t.Fatalf("413 message not actionable: %q", got)
+	}
+}
+
+func TestProcessZipCountOverflow(t *testing.T) {
+	opts := defaultOpts()
+	opts.MaxFiles = 2
+	zipBody := buildZip(t, map[string][]byte{
+		"a.png": tinyPNG(t, 10, 10),
+		"b.png": tinyPNG(t, 10, 10),
+		"c.png": tinyPNG(t, 10, 10),
+	})
+	rr := postZip(t, opts, zipBody, map[string]string{"resize-mode": "none", "format": "jpg"})
+	if rr.Code != http.StatusRequestEntityTooLarge {
+		t.Fatalf("status = %d, want 413; body=%s", rr.Code, rr.Body.String())
+	}
+	if !strings.Contains(rr.Body.String(), "--max-files") {
+		t.Fatalf("413 message not actionable: %q", rr.Body.String())
+	}
+}
+
+func TestProcessZipSlipEntry(t *testing.T) {
+	zipBody := buildZip(t, map[string][]byte{
+		"../evil.png": tinyPNG(t, 20, 20),
+	})
+	rr := postZip(t, defaultOpts(), zipBody, map[string]string{
+		"resize-mode": "none",
+		"format":      "jpg",
+		"keep-names":  "on",
+	})
+	if rr.Code != http.StatusOK {
+		t.Fatalf("status = %d, body:\n%s", rr.Code, rr.Body.String())
+	}
+	zr, err := zip.NewReader(bytes.NewReader(rr.Body.Bytes()), int64(rr.Body.Len()))
+	if err != nil {
+		t.Fatalf("zip reader: %v", err)
+	}
+	names := zipNames(zr)
+	var found bool
+	for _, n := range names {
+		if strings.Contains(n, "..") {
+			t.Fatalf("traversal survived into output name %q", n)
+		}
+		if n == "evil.jpg" {
+			found = true
+		}
+	}
+	if !found {
+		t.Fatalf("expected flattened evil.jpg, got %v", names)
+	}
+}
+
+func TestProcessMixedDirectAndZip(t *testing.T) {
+	zipBody := buildZip(t, map[string][]byte{
+		"inside.png": tinyPNG(t, 25, 25),
+		"note.txt":   []byte("junk"),
+	})
+	body, ct := buildMultipart(t, []uploadFile{
+		{Field: "files", Name: "direct.png", Body: tinyPNG(t, 35, 35)},
+		{Field: "files", Name: "batch.zip", Body: zipBody},
+	}, map[string]string{"name": "mix", "resize-mode": "none", "format": "jpg"})
+	req := httptest.NewRequest(http.MethodPost, "/process", body)
+	req.Header.Set("Content-Type", ct)
+	rr := httptest.NewRecorder()
+	newRouter(defaultOpts()).ServeHTTP(rr, req)
+	if rr.Code != http.StatusOK {
+		t.Fatalf("status = %d, body:\n%s", rr.Code, rr.Body.String())
+	}
+	if got := rr.Header().Get("X-Imgx-Failed"); got != "1" {
+		t.Fatalf("X-Imgx-Failed = %q, want \"1\"", got)
+	}
+	zr, err := zip.NewReader(bytes.NewReader(rr.Body.Bytes()), int64(rr.Body.Len()))
+	if err != nil {
+		t.Fatalf("zip reader: %v", err)
+	}
+	var jpgs int
+	for _, f := range zr.File {
+		if strings.HasSuffix(f.Name, ".jpg") {
+			jpgs++
+		}
+	}
+	if jpgs != 2 {
+		t.Fatalf("want 2 processed images (direct + extracted), got %d: %v", jpgs, zipNames(zr))
+	}
+}
+
+func TestProcessZipKeepNames(t *testing.T) {
+	zipBody := buildZip(t, map[string][]byte{
+		"Holiday Photo.png": tinyPNG(t, 30, 30),
+	})
+	rr := postZip(t, defaultOpts(), zipBody, map[string]string{
+		"resize-mode": "none",
+		"format":      "jpg",
+		"keep-names":  "on",
+	})
+	if rr.Code != http.StatusOK {
+		t.Fatalf("status = %d, body:\n%s", rr.Code, rr.Body.String())
+	}
+	zr, err := zip.NewReader(bytes.NewReader(rr.Body.Bytes()), int64(rr.Body.Len()))
+	if err != nil {
+		t.Fatalf("zip reader: %v", err)
+	}
+	var found bool
+	for _, f := range zr.File {
+		if f.Name == "holiday-photo.jpg" {
+			found = true
+		}
+	}
+	if !found {
+		t.Fatalf("expected holiday-photo.jpg, got %v", zipNames(zr))
+	}
+}
+
+func TestProcessZipMacJunkSilent(t *testing.T) {
+	zipBody := buildZip(t, map[string][]byte{
+		"__MACOSX/._one.png": []byte("appledouble junk"),
+		".DS_Store":          []byte("finder junk"),
+		"photos/one.png":     tinyPNG(t, 20, 20),
+	})
+	rr := postZip(t, defaultOpts(), zipBody, map[string]string{"resize-mode": "none", "format": "jpg"})
+	if rr.Code != http.StatusOK {
+		t.Fatalf("status = %d, body:\n%s", rr.Code, rr.Body.String())
+	}
+	if got := rr.Header().Get("X-Imgx-Failed"); got != "" {
+		t.Fatalf("X-Imgx-Failed = %q, want unset (metadata junk must be silent)", got)
+	}
+	zr, err := zip.NewReader(bytes.NewReader(rr.Body.Bytes()), int64(rr.Body.Len()))
+	if err != nil {
+		t.Fatalf("zip reader: %v", err)
+	}
+	for _, f := range zr.File {
+		if f.Name == "errors.txt" {
+			t.Fatalf("unexpected errors.txt for metadata-only skips: %v", zipNames(zr))
+		}
+	}
+}
+
+func TestProcessDirectJunkAmongImagesReported(t *testing.T) {
+	body, ct := buildMultipart(t, []uploadFile{
+		{Field: "files", Name: "good.png", Body: tinyPNG(t, 20, 20)},
+		{Field: "files", Name: "note.txt", Body: []byte("not an image")},
+	}, map[string]string{"resize-mode": "none", "format": "jpg"})
+	req := httptest.NewRequest(http.MethodPost, "/process", body)
+	req.Header.Set("Content-Type", ct)
+	rr := httptest.NewRecorder()
+	newRouter(defaultOpts()).ServeHTTP(rr, req)
+	if rr.Code != http.StatusOK {
+		t.Fatalf("status = %d, body:\n%s", rr.Code, rr.Body.String())
+	}
+	if got := rr.Header().Get("X-Imgx-Failed"); got != "1" {
+		t.Fatalf("X-Imgx-Failed = %q, want \"1\"", got)
+	}
+	zr, err := zip.NewReader(bytes.NewReader(rr.Body.Bytes()), int64(rr.Body.Len()))
+	if err != nil {
+		t.Fatalf("zip reader: %v", err)
+	}
+	var manifest []byte
+	for _, f := range zr.File {
+		if f.Name == "errors.txt" {
+			rc, _ := f.Open()
+			manifest, _ = io.ReadAll(rc)
+			_ = rc.Close()
+		}
+	}
+	if !strings.Contains(string(manifest), "note.txt") {
+		t.Fatalf("errors.txt does not name the skipped direct file: %q", manifest)
+	}
 }

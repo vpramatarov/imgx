@@ -1,6 +1,8 @@
 package server
 
 import (
+	"bytes"
+	"errors"
 	"fmt"
 	"io"
 	"log"
@@ -9,11 +11,11 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"strconv"
 	"strings"
 	"time"
 
 	"github.com/vpramatarov/imgx/internal/format"
-	"github.com/vpramatarov/imgx/internal/naming"
 	"github.com/vpramatarov/imgx/internal/pipeline"
 	"github.com/vpramatarov/imgx/internal/scanner"
 )
@@ -36,7 +38,9 @@ func handleHealth(w http.ResponseWriter, r *http.Request) {
 // Options. The handler:
 //  1. Caps the request body at MaxFileSize * MaxFiles.
 //  2. Parses multipart, enforces per-file size + file-count limits.
-//  3. Writes each upload to a temp input dir (sanitising names).
+//  3. Writes each upload to a temp input dir (sanitising names). Zip
+//     parts are extracted in place; non-image parts and zip entries are
+//     skipped and reported in errors.txt / X-Imgx-Failed.
 //  4. Runs scanner + pipeline exactly like the CLI.
 //  5. Streams a ZIP of the output dir back to the client.
 //  6. Cleans up both temp dirs in deferreds.
@@ -73,7 +77,8 @@ func makeProcessHandler(opts Options) http.HandlerFunc {
 		for _, fh := range in.Files {
 			if fh.Size > opts.MaxFileSize {
 				httpError(w, http.StatusRequestEntityTooLarge,
-					fmt.Sprintf("file %q is %d bytes (max %d per file)", fh.Filename, fh.Size, opts.MaxFileSize))
+					fmt.Sprintf("file %q is %d bytes (max %d per file); split the upload or run imgx serve with a larger --max-file-size",
+						fh.Filename, fh.Size, opts.MaxFileSize))
 				return
 			}
 		}
@@ -91,7 +96,13 @@ func makeProcessHandler(opts Options) http.HandlerFunc {
 		}
 		defer os.RemoveAll(outDir)
 
-		if err := saveUploads(in.Files, inDir); err != nil {
+		skipped, err := saveUploads(in.Files, inDir, opts)
+		if err != nil {
+			var se *statusError
+			if errors.As(err, &se) {
+				httpError(w, se.code, se.msg)
+				return
+			}
 			httpError(w, http.StatusBadRequest, "save uploads: "+err.Error())
 			return
 		}
@@ -113,7 +124,11 @@ func makeProcessHandler(opts Options) http.HandlerFunc {
 			return
 		}
 		if len(entries) == 0 {
-			httpError(w, http.StatusBadRequest, "no decodable images in upload (magic-byte check failed)")
+			msg := "no decodable images in upload (magic-byte check failed)"
+			if len(skipped) > 0 {
+				msg += fmt.Sprintf(" — %d file(s)/zip entries skipped as non-images (first: %s)", len(skipped), skipped[0].Name)
+			}
+			httpError(w, http.StatusBadRequest, msg)
 			return
 		}
 
@@ -142,10 +157,14 @@ func makeProcessHandler(opts Options) http.HandlerFunc {
 			httpError(w, http.StatusUnprocessableEntity, msg)
 			return
 		}
-		// Partial failure: embed an errors.txt in the zip so the user can
-		// see which files dropped out without having to read server logs.
-		if len(summary.Failed) > 0 {
-			writeErrorsManifest(outDir, summary.Failed)
+		// Skips (non-image parts / zip entries) and per-file pipeline
+		// failures share one report: an errors.txt in the zip so the user
+		// can see what dropped out without reading server logs, plus a
+		// count header so the page can surface it.
+		report := append(skipped, summary.Failed...)
+		if len(report) > 0 {
+			writeErrorsManifest(outDir, report)
+			w.Header().Set("X-Imgx-Failed", strconv.Itoa(len(report)))
 		}
 
 		filename := fmt.Sprintf("imgx-%s.zip", time.Now().UTC().Format("20060102-150405"))
@@ -185,12 +204,12 @@ func readOnlyMessage(bad []scanner.Entry) string {
 		len(bad), strings.Join(formats, ", "), strings.Join(names, ", "), writable)
 }
 
-// writeErrorsManifest drops a plain-text summary of per-file failures
-// into outDir before the zip is streamed. Errors are logged but not
-// propagated — the caller's partial success still goes out.
+// writeErrorsManifest drops a plain-text summary of skipped files and
+// per-file failures into outDir before the zip is streamed. Errors are
+// logged but not propagated — the caller's partial success still goes out.
 func writeErrorsManifest(outDir string, failed []pipeline.FailedFile) {
 	var b strings.Builder
-	fmt.Fprintf(&b, "imgx: %d file(s) failed to process\n\n", len(failed))
+	fmt.Fprintf(&b, "imgx: %d file(s) were skipped or failed to process\n\n", len(failed))
 	for _, f := range failed {
 		fmt.Fprintf(&b, "%s: %s\n", f.Name, f.Reason)
 	}
@@ -199,43 +218,59 @@ func writeErrorsManifest(outDir string, failed []pipeline.FailedFile) {
 	}
 }
 
-// saveUploads copies every multipart file part into destDir, giving each
-// a sanitised basename. Collisions are resolved by appending -1, -2, ...
-// filepath.Base is used as a first-line path-traversal guard.
-func saveUploads(files []*multipart.FileHeader, destDir string) error {
+// saveUploads writes every multipart part into destDir. Zip parts (by
+// magic bytes) are extracted; other parts are sniffed and written when
+// they are decodable images, or skipped and reported when not. Collisions
+// resolve via a used-name map shared across parts and archives, with
+// filepath.Base as a first-line path-traversal guard.
+func saveUploads(files []*multipart.FileHeader, destDir string, opts Options) ([]pipeline.FailedFile, error) {
 	used := make(map[string]struct{}, len(files))
+	saved := 0
+	var skipped []pipeline.FailedFile
 	for _, fh := range files {
 		src, err := fh.Open()
 		if err != nil {
-			return fmt.Errorf("open %q: %w", fh.Filename, err)
+			return skipped, fmt.Errorf("open %q: %w", fh.Filename, err)
 		}
-		base := filepath.Base(fh.Filename)
-		stem, ext := splitExt(base)
-		stem = naming.Clean(stem)
-		if stem == "" {
-			stem = "upload"
-		}
-		name := stem + ext
-		for i := 1; ; i++ {
-			if _, taken := used[name]; !taken {
-				break
+		if isZipUpload(src) {
+			var zs []pipeline.FailedFile
+			saved, zs, err = extractZip(src, fh.Size, filepath.Base(fh.Filename), destDir, used, opts, saved)
+			_ = src.Close()
+			skipped = append(skipped, zs...)
+			if err != nil {
+				return skipped, err
 			}
-			name = fmt.Sprintf("%s-%d%s", stem, i, ext)
+			continue
 		}
-		used[name] = struct{}{}
+		var head [16]byte
+		n, _ := src.ReadAt(head[:], 0) // ReadAt: offset stays at 0 for the Copy below
+		if f, _ := format.DetectReader(bytes.NewReader(head[:n])); !f.CanDecode() {
+			_ = src.Close()
+			log.Printf("warn: %s: skipped: not a decodable image", fh.Filename)
+			skipped = append(skipped, pipeline.FailedFile{Name: fh.Filename, Reason: "skipped: not a decodable image"})
+			continue
+		}
+		if saved >= opts.MaxFiles {
+			_ = src.Close()
+			return skipped, &statusError{http.StatusRequestEntityTooLarge, fmt.Sprintf(
+				"too many files: %q exceeds the %d-file limit; split the upload or run imgx serve with a larger --max-files",
+				fh.Filename, opts.MaxFiles)}
+		}
+		name := reserveName(filepath.Base(fh.Filename), used)
 		dst, err := os.Create(filepath.Join(destDir, name))
 		if err != nil {
 			_ = src.Close()
-			return fmt.Errorf("create %q: %w", name, err)
+			return skipped, fmt.Errorf("create %q: %w", name, err)
 		}
 		_, err = io.Copy(dst, src)
 		_ = src.Close()
 		_ = dst.Close()
 		if err != nil {
-			return fmt.Errorf("write %q: %w", name, err)
+			return skipped, fmt.Errorf("write %q: %w", name, err)
 		}
+		saved++
 	}
-	return nil
+	return skipped, nil
 }
 
 func splitExt(name string) (string, string) {

@@ -4,6 +4,7 @@
 input: ./photos
 out: ./out
 name: my-images
+# keep-names: false     # keep original (sanitized) file names; ignores name:
 width: 1200
 format: jpg
 quality: 85

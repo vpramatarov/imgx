@@ -101,6 +101,38 @@ func TestResolverConflictOnDisk(t *testing.T) {
 	}
 }
 
+func TestResolveStemNoConflict(t *testing.T) {
+	dir := t.TempDir()
+	r := NewResolver(dir)
+	got, err := r.ResolveStem("holiday-photo", "jpg")
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := filepath.Join(dir, "holiday-photo.jpg")
+	if got != want {
+		t.Errorf("got %q, want %q", got, want)
+	}
+}
+
+func TestResolveStemConflicts(t *testing.T) {
+	dir := t.TempDir()
+	existing := filepath.Join(dir, "photo.jpg")
+	if err := os.WriteFile(existing, []byte("x"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	r := NewResolver(dir)
+	for i, base := range []string{"photo-1.jpg", "photo-2.jpg"} {
+		got, err := r.ResolveStem("photo", "jpg")
+		if err != nil {
+			t.Fatal(err)
+		}
+		want := filepath.Join(dir, base)
+		if got != want {
+			t.Errorf("call %d: got %q, want %q", i+1, got, want)
+		}
+	}
+}
+
 func TestResolverConcurrentReservations(t *testing.T) {
 	dir := t.TempDir()
 	r := NewResolver(dir)

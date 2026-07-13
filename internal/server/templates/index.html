@@ -151,6 +151,25 @@
       color: var(--text-muted);
       margin-bottom: .35rem;
     }
+    .check {
+      display: flex;
+      align-items: center;
+      gap: .55rem;
+      font-size: .9rem;
+      color: var(--text);
+      cursor: pointer;
+    }
+    .check input[type=checkbox] {
+      width: 16px;
+      height: 16px;
+      margin: 0;
+      flex-shrink: 0;
+      accent-color: var(--accent);
+    }
+    input[type=text]:disabled {
+      opacity: .5;
+      cursor: not-allowed;
+    }
 
     input[type=text],
     input[type=number],
@@ -352,6 +371,39 @@
       color: var(--text-soft);
     }
 
+    /* Submit status: success / warning / error */
+    .form-status {
+      margin: 0;
+      padding: .7rem 1rem;
+      font-size: .9rem;
+      color: var(--text-muted);
+      background: var(--surface-muted);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      overflow-wrap: break-word;
+      white-space: pre-line; /* server errors can contain newlines */
+    }
+    .form-status.is-warn {
+      color: #8a6100;
+      background: rgba(240, 180, 40, 0.10);
+      border-color: rgba(240, 180, 40, 0.4);
+    }
+    .form-status.is-error {
+      color: #c03434;
+      background: rgba(220, 70, 60, 0.08);
+      border-color: rgba(220, 70, 60, 0.35);
+    }
+    @media (prefers-color-scheme: dark) {
+      .form-status.is-warn { color: #ffd479; }
+      .form-status.is-error { color: #ff9d94; }
+    }
+    button[type=submit]:disabled {
+      opacity: .6;
+      cursor: default;
+      transform: none;
+      box-shadow: var(--shadow-sm);
+    }
+
     .foot {
       margin-top: 2.5rem;
       padding-top: 1.25rem;
@@ -390,18 +442,24 @@
             <polyline points="17 8 12 3 7 8"/>
             <line x1="12" y1="3" x2="12" y2="15"/>
           </svg>
-          <span class="file-drop-title" id="file-drop-title">Drop images here or click to browse</span>
-          <span class="file-drop-hint" id="file-drop-hint">PNG, JPEG, WebP, AVIF, HEIC, GIF, TIFF, BMP</span>
-          <input type="file" name="files" id="files" multiple required accept="image/*">
+          <span class="file-drop-title" id="file-drop-title">Drop images or a ZIP here or click to browse</span>
+          <span class="file-drop-hint" id="file-drop-hint">PNG, JPEG, WebP, AVIF, HEIC, GIF, TIFF, BMP — or a ZIP of images</span>
+          <input type="file" name="files" id="files" multiple required accept="image/*,.zip,application/zip">
         </label>
       </fieldset>
 
       <fieldset>
         <legend>Naming</legend>
-        <label>
-          <span class="label-text">Base name</span>
-          <input type="text" name="name" placeholder="image" maxlength="120">
-        </label>
+        <div class="stack">
+          <label>
+            <span class="label-text">Base name</span>
+            <input type="text" name="name" id="name-input" placeholder="image" maxlength="120">
+          </label>
+          <label class="check">
+            <input type="checkbox" name="keep-names" id="keep-names">
+            <span>Keep original file names (sanitized; base name ignored)</span>
+          </label>
+        </div>
       </fieldset>
 
       <fieldset>
@@ -474,6 +532,8 @@
         </div>
       </fieldset>
 
+      <p id="form-status" class="form-status" hidden role="status" aria-live="polite"></p>
+
       <div class="actions">
         <span class="actions-note">Uploads are processed in memory and never persisted.</span>
         <button type="submit">
@@ -505,6 +565,16 @@
     })();
 
     (function () {
+      var keep = document.getElementById('keep-names');
+      var name = document.getElementById('name-input');
+      function sync() {
+        name.disabled = keep.checked;
+      }
+      keep.addEventListener('change', sync);
+      sync();
+    })();
+
+    (function () {
       var drop = document.getElementById('file-drop');
       var input = document.getElementById('files');
       var title = document.getElementById('file-drop-title');
@@ -519,7 +589,7 @@
           hint.textContent = defaultHint;
           return;
         }
-        title.textContent = n + (n === 1 ? ' image selected' : ' images selected');
+        title.textContent = n + (n === 1 ? ' file selected' : ' files selected');
         var names = [];
         for (var i = 0; i < Math.min(n, 3); i++) names.push(input.files[i].name);
         hint.textContent = names.join(', ') + (n > 3 ? ' …' : '');
@@ -565,6 +635,95 @@
           e.preventDefault();
           drop.classList.remove('is-drag');
         });
+      });
+    })();
+
+    // Intercept the submit so we get a "success" moment the native
+    // attachment download never gives us: fetch the ZIP, trigger the
+    // download ourselves, then reset the form. Validation errors from
+    // the server render in #form-status instead of a bare error page.
+    (function () {
+      var form = document.querySelector('form');
+      var filesInput = document.getElementById('files');
+      var formatSel = document.getElementById('format-select');
+      var keepNames = document.getElementById('keep-names');
+      var status = document.getElementById('form-status');
+      var button = form.querySelector('button[type=submit]');
+      var buttonLabel = button.querySelector('span');
+      var defaultButtonLabel = buttonLabel.textContent;
+      var filenameRe = /filename\s*=\s*"?([^";]+)"?/i;
+
+      function zipName(header) {
+        var m = header ? header.match(filenameRe) : null;
+        return m ? m[1] : 'imgx.zip';
+      }
+
+      function showStatus(msg, kind) {
+        status.textContent = msg;
+        status.classList.toggle('is-error', kind === 'error');
+        status.classList.toggle('is-warn', kind === 'warn');
+        status.hidden = false;
+      }
+
+      function downloadBlob(blob, filename) {
+        var url = URL.createObjectURL(blob);
+        var a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
+      }
+
+      function resetAfterSuccess() {
+        form.reset();
+        // Re-run the change-wired UI logic: update() + checkReadOnlyInputs()
+        // restore the drop-zone text and clear #format-note; sync() hides
+        // the quality field again; the keep-names sync re-enables the
+        // base name input (native reset already unchecked the box).
+        filesInput.dispatchEvent(new Event('change'));
+        formatSel.dispatchEvent(new Event('change'));
+        keepNames.dispatchEvent(new Event('change'));
+      }
+
+      form.addEventListener('submit', function (e) {
+        e.preventDefault();
+        var fd = new FormData(form);
+        status.hidden = true;
+        button.disabled = true;
+        buttonLabel.textContent = 'Converting…';
+
+        fetch(form.action, { method: 'POST', body: fd })
+          .then(function (res) {
+            if (!res.ok) {
+              return res.text().then(function (msg) {
+                throw new Error(msg.trim() || ('server error (HTTP ' + res.status + ')'));
+              });
+            }
+            var name = zipName(res.headers.get('Content-Disposition'));
+            var failed = parseInt(res.headers.get('X-Imgx-Failed'), 10);
+            return res.blob().then(function (blob) {
+              downloadBlob(blob, name);
+              resetAfterSuccess();
+              if (failed > 0) {
+                showStatus('Done — ' + name + ' downloaded, but ' + failed +
+                  ' file(s) were skipped or failed. See errors.txt inside the ZIP.', 'warn');
+              } else {
+                showStatus('Done — ' + name + ' downloaded.');
+              }
+            });
+          })
+          .catch(function (err) {
+            var msg = (err instanceof TypeError)
+              ? 'Network error — could not reach the server.'
+              : (err && err.message) || 'Unexpected error.';
+            showStatus(msg, 'error');
+          })
+          .finally(function () {
+            button.disabled = false;
+            buttonLabel.textContent = defaultButtonLabel;
+          });
       });
     })();
   </script>

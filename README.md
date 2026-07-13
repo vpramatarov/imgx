@@ -2,7 +2,8 @@
 
 Batch image processor written in Go. Resizes, renames, converts format, and
 strips EXIF from every image in a folder. Also ships an HTTP upload UI that
-returns processed batches as a ZIP. Originals are never modified.
+takes images (or a ZIP of images) and returns processed batches as a ZIP.
+Originals are never modified.
 
 ## Install / run
 
@@ -44,6 +45,7 @@ imgx [flags] <input-dir>
 Flags:
   -o, --out          Output directory (required)
   -n, --name         Base name for output files (default: input folder name)
+      --keep-names   Keep each file's original name (sanitized); --name is ignored
   -w, --width        Target width in px (keeps aspect ratio)
       --height       Target height in px (keeps aspect ratio)
       --fit          Fit within bounding box WxH (e.g. 1200x1200, never upscales)
@@ -71,6 +73,7 @@ stdout. Exit code is `2` whenever any file failed.
 input: ./photos
 out: ./out
 name: my-images
+# keep-names: true   # keep original (sanitized) file names; ignores name:
 width: 1200
 format: jpg
 quality: 85
@@ -89,6 +92,11 @@ via BGN/PCGN, all other non-ASCII runes via go-unidecode, then lowercased
 and sanitised to `[a-z0-9.-]` (other characters become `-`). If the result
 already exists in the output directory, `-1`, `-2`, ... are appended until
 a free slot is found.
+
+With `--keep-names` (or the "Keep original file names" checkbox in the web
+UI), each output instead keeps its input's file name — run through the same
+transliteration/sanitisation — and only the extension changes with the
+output format. Stem collisions get `-1`, `-2`, ... suffixes.
 
 ## Supported formats
 
@@ -156,15 +164,25 @@ Flags:
 --shutdown-timeout How long to wait for in-flight requests on SIGINT/SIGTERM (default 30s)
 ```
 
-Open the listed URL in a browser, drop images on the form, pick options, and
-the processed batch comes back as a ZIP. Uploads live in a per-request temp
-dir and are deleted as soon as the response is written — nothing is persisted.
+Open the listed URL in a browser, drop images — or a ZIP of images — on the
+form, pick options, and the processed batch comes back as a ZIP. Uploads live
+in a per-request temp dir and are deleted as soon as the response is written —
+nothing is persisted.
 
-If some files succeed and others fail, the returned ZIP also contains an
-`errors.txt` listing each skipped input and why. Selecting **Keep original**
+ZIP uploads are expanded server-side: entries are detected by magic bytes,
+non-image entries are skipped (logged and listed in `errors.txt` in the
+result), and OS metadata junk (`__MACOSX/`, `._*`, `.DS_Store`, `Thumbs.db`)
+is dropped silently. Each extracted image counts toward `--max-files` and must
+fit `--max-file-size` uncompressed; the archive itself is also subject to
+`--max-file-size` as an upload.
+
+If some files are skipped or fail, the returned ZIP also contains an
+`errors.txt` listing each one and why; the count is also exposed via an
+`X-Imgx-Failed` response header, which the form surfaces as an inline
+warning under the submit button. Selecting **Keep original**
 while uploading HEIC/BMP (both decode-only) is rejected with HTTP 400; the
-browser form also auto-swaps the format to JPEG in that case, so the 400 only
-fires for non-browser clients.
+browser form auto-swaps the format to JPEG when it can see such filenames,
+but contents hidden inside a ZIP are only caught by the server check.
 
 Under Docker, this is the default entrypoint — `docker compose up --build`
 starts the server on `http://localhost:${IMGX_PORT:-8080}`. There is **no
@@ -196,5 +214,5 @@ internal/processor/  Resize, encode, EXIF helper
                      convert_noheif.go (!heif tag: stub)
 internal/naming/     BGN/PCGN translit, sanitise, conflict resolve
 internal/pipeline/   Worker pool orchestration
-internal/server/     HTTP server, upload handler, streamed ZIP response
+internal/server/     HTTP server, upload handler (incl. ZIP upload extraction), streamed ZIP response
 ```

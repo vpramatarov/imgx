@@ -23,6 +23,7 @@ type Config struct {
 	Input       string
 	Output      string
 	Name        string
+	KeepNames   bool
 	Width       int
 	Height      int
 	Fit         [2]int
@@ -74,6 +75,7 @@ func Load(cmd *cobra.Command, args []string) (Config, error) {
 		Input:       input,
 		Output:      v.GetString("out"),
 		Name:        v.GetString("name"),
+		KeepNames:   v.GetBool("keep-names"),
 		Width:       v.GetInt("width"),
 		Height:      v.GetInt("height"),
 		Format:      strings.ToLower(v.GetString("format")),

@@ -32,6 +32,7 @@ func newRootCmd() *cobra.Command {
 	f := cmd.Flags()
 	f.StringP("out", "o", "", "Output directory (required)")
 	f.StringP("name", "n", "", "Base name for output files (default: input folder name)")
+	f.Bool("keep-names", false, "Keep each file's original name (sanitized); --name is ignored")
 	f.IntP("width", "w", 0, "Target width in px (keeps aspect ratio)")
 	f.Int("height", 0, "Target height in px (keeps aspect ratio)")
 	f.String("fit", "", "Fit within bounding box WxH, e.g. 1200x1200")

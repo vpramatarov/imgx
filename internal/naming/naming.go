@@ -112,15 +112,14 @@ func NewResolver(outDir string) *Resolver {
 	}
 }
 
-// Resolve returns a free path of the form <dir>/<base>-<n>.<ext>, falling
-// back to <base>-<n>-1.<ext>, <base>-<n>-2.<ext>, ... when there is a
-// conflict with an existing file on disk or a previous Resolve call.
-// The returned path is reserved; the caller is expected to write it.
-func (r *Resolver) Resolve(base string, n int, ext string) (string, error) {
+// ResolveStem returns a free path <dir>/<stem>.<ext>, falling back to
+// <stem>-1.<ext>, <stem>-2.<ext>, ... when there is a conflict with an
+// existing file on disk or a previous reservation. The returned path is
+// reserved; the caller is expected to write it.
+func (r *Resolver) ResolveStem(stem, ext string) (string, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
-	stem := fmt.Sprintf("%s-%d", base, n)
 	if p, ok, err := r.tryReserve(stem + "." + ext); err != nil {
 		return "", err
 	} else if ok {
@@ -135,6 +134,12 @@ func (r *Resolver) Resolve(base string, n int, ext string) (string, error) {
 		}
 	}
 	return "", errors.New("naming: could not find a free filename after 1M attempts")
+}
+
+// Resolve returns a free path of the form <dir>/<base>-<n>.<ext> (see
+// ResolveStem for conflict handling).
+func (r *Resolver) Resolve(base string, n int, ext string) (string, error) {
+	return r.ResolveStem(fmt.Sprintf("%s-%d", base, n), ext)
 }
 
 func (r *Resolver) tryReserve(name string) (string, bool, error) {
