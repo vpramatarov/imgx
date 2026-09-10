@@ -295,7 +295,7 @@ input-1.jpg  input-2.jpg  input-3.jpg  ...
 
 <h3>Option B &mdash; From source</h3>
 
-<p>Requires: Go 1.26+.</p>
+<p>Requires: Go 1.27+.</p>
 
 <pre class="shell"><span class="prompt">$</span> git clone https://github.com/&lt;your-org&gt;/imgx.git
 <span class="prompt">$</span> cd imgx
@@ -711,7 +711,7 @@ CMD ["serve", "--addr", "0.0.0.0:8080"]
 <!-- ========================================================= RUN LOCAL -->
 <h2 id="run-local">From source (no Docker)</h2>
 
-<p>If you have a Go 1.26+ toolchain installed:</p>
+<p>If you have a Go 1.27+ toolchain installed:</p>
 
 <pre class="shell"><span class="prompt">$</span> go build -o imgx ./cmd/imgx
 
@@ -877,17 +877,17 @@ ok   github.com/vpramatarov/imgx/internal/server     0.090s
 <p>The Dockerfile has <strong>five stages</strong> plus an Air helper stage, so the same <code>Dockerfile</code> produces either a dev container with hot reload or a lean production container depending on <code>--target</code>.</p>
 
 <pre class="diagram">┌─────────────────────────────┐
-│  Stage 1: deps              │  golang:1.26-trixie + libheif-dev
+│  Stage 1: deps              │  golang:1.27-trixie + libheif-dev
 │  go mod download all        │  ← cached layer; invalidated when go.mod changes
 └────────────┬────────────────┘
              │
 ┌────────────▼────────────────┐
-│  Stage 2: dev               │  golang:1.26-trixie + libheif-dev + Air
+│  Stage 2: dev               │  golang:1.27-trixie + libheif-dev + Air
 │  hot reload (CGO=1)         │  ← used by docker-compose.dev.yml
 └────────────┬────────────────┘
              │
 ┌────────────▼────────────────┐
-│  Stage 3: builder           │  golang:1.26-trixie + libheif-dev
+│  Stage 3: builder           │  golang:1.27-trixie + libheif-dev
 │  CGO=1 build -tags heif     │  ← produces /out/imgx
 └────────────┬────────────────┘
              │
@@ -904,9 +904,9 @@ ok   github.com/vpramatarov/imgx/internal/server     0.090s
 <table>
   <thead><tr><th>Stage</th><th>Base</th><th>Purpose</th></tr></thead>
   <tbody>
-    <tr><td><code>deps</code></td><td><code>golang:1.26-trixie</code> + libheif-dev</td><td>Downloads Go modules once; cached until <code>go.mod</code> changes.</td></tr>
-    <tr><td><code>dev</code></td><td><code>golang:1.26-trixie</code> + libheif-dev + Air</td><td>Runs Air with <code>CGO_ENABLED=1</code>; the <code>.air.toml</code> build cmd passes <code>-tags heif</code>.</td></tr>
-    <tr><td><code>builder</code></td><td><code>golang:1.26-trixie</code> + libheif-dev</td><td>CGO build with <code>-tags heif -trimpath -ldflags="-s -w"</code>.</td></tr>
+    <tr><td><code>deps</code></td><td><code>golang:1.27-trixie</code> + libheif-dev</td><td>Downloads Go modules once; cached until <code>go.mod</code> changes.</td></tr>
+    <tr><td><code>dev</code></td><td><code>golang:1.27-trixie</code> + libheif-dev + Air</td><td>Runs Air with <code>CGO_ENABLED=1</code>; the <code>.air.toml</code> build cmd passes <code>-tags heif</code>.</td></tr>
+    <tr><td><code>builder</code></td><td><code>golang:1.27-trixie</code> + libheif-dev</td><td>CGO build with <code>-tags heif -trimpath -ldflags="-s -w"</code>.</td></tr>
     <tr><td><code>runtime-libs</code></td><td><code>debian:trixie-slim</code></td><td>Installs <code>libheif1</code>, <code>libheif-plugin-libde265</code> (HEVC decode), <code>libheif-plugin-aomdec</code>, <code>libheif-plugin-aomenc</code> (AVIF), then stages both <code>libheif.so</code> + the plugin tree and walks <code>ldd</code> over every plugin to pick up their transitive <code>.so</code> closure (libde265, libaom, libdav1d, libwebp, …). <code>libheif-plugin-x265</code> is deliberately omitted — GPL, and only HEVC <em>decode</em> is needed for HEIC input.</td></tr>
     <tr><td><code>prod</code></td><td><code>gcr.io/distroless/cc-debian13:nonroot</code></td><td>~50–60 MB runtime image. Has glibc + libstdc++ + libgcc, plus <code>libheif</code>, its codec plugins, and the transitive <code>.so</code> closure. Runs as UID 65532.</td></tr>
   </tbody>

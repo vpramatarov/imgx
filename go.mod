@@ -1,6 +1,6 @@
 module github.com/vpramatarov/imgx
 
-go 1.26
+go 1.27.1
 
 require (
 	github.com/HugoSmits86/nativewebp v0.9.0
@@ -10,6 +10,7 @@ require (
 	github.com/rwcarlsen/goexif v0.0.0-20190401172101-9e8deecbddbd
 	github.com/spf13/cobra v1.8.1
 	github.com/spf13/viper v1.19.0
+	github.com/strukturag/libheif-go v0.0.0-20250130134905-55b3482bea15
 	golang.org/x/image v0.18.0
 )
 

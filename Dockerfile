@@ -1,5 +1,5 @@
 # ---- deps: cache go modules
-FROM golang:1.26-trixie AS deps
+FROM golang:1.27-trixie AS deps
 WORKDIR /app
 RUN apt-get update && apt-get install -y --no-install-recommends \
       libheif-dev libaom-dev libde265-dev pkg-config git \
@@ -8,11 +8,11 @@ COPY go.mod go.sum ./
 RUN go mod download all
 
 # ---- air-build: compile Air separately so its caches stay out of dev
-FROM golang:1.26-trixie AS air-build
+FROM golang:1.27-trixie AS air-build
 RUN go install github.com/air-verse/air@latest
 
 # ---- dev: Go toolchain + libheif build deps + Air
-FROM golang:1.26-trixie AS dev
+FROM golang:1.27-trixie AS dev
 WORKDIR /app
 RUN apt-get update && apt-get install -y --no-install-recommends \
       libheif-dev libaom-dev libde265-dev pkg-config \
@@ -22,7 +22,7 @@ ENV CGO_ENABLED=1
 CMD ["air", "-c", ".air.toml"]
 
 # ---- builder: CGO build with libheif + AVIF encode/decode
-FROM golang:1.26-trixie AS builder
+FROM golang:1.27-trixie AS builder
 WORKDIR /app
 RUN apt-get update && apt-get install -y --no-install-recommends \
       libheif-dev libaom-dev libde265-dev pkg-config \
